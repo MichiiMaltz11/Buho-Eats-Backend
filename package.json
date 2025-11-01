@@ -1,0 +1,29 @@
+{
+  "name": "buho-eats-backend",
+  "version": "1.0.0",
+  "description": "Backend API para Buho Eats - Sistema de reseñas de restaurantes",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "init-db": "node scripts/initDatabase.js",
+    "test": "node scripts/testAPI.js"
+  },
+  "keywords": [
+    "restaurant",
+    "reviews",
+    "api",
+    "security"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "jsonwebtoken": "^9.0.2",
+    "better-sqlite3": "^9.2.2"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
