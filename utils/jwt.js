@@ -28,7 +28,7 @@ function generateToken(payload) {
 
         return token;
     } catch (error) {
-        console.error('❌ Error al generar token:', error.message);
+        console.error('Error al generar token:', error.message);
         throw new Error('Error al generar token de autenticación');
     }
 }

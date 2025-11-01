@@ -11,7 +11,7 @@ function loadEnv() {
     const envPath = path.join(__dirname, '..', '.env');
     
     if (!fs.existsSync(envPath)) {
-        console.error('❌ Archivo .env no encontrado. Copia .env.example a .env');
+        console.error('Archivo .env no encontrado');
         process.exit(1);
     }
 
@@ -56,8 +56,7 @@ function validateEnv() {
     });
 
     if (missing.length > 0) {
-        console.error('❌ Variables de entorno faltantes:', missing.join(', '));
-        console.error('Revisa tu archivo .env');
+        console.error('Variables de entorno faltantes:', missing.join(', '));
         process.exit(1);
     }
 }

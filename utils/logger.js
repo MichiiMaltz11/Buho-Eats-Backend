@@ -41,7 +41,7 @@ function writeToFile(message) {
 
         fs.appendFileSync(logFile, message, 'utf8');
     } catch (error) {
-        console.error('❌ Error al escribir log:', error.message);
+        console.error('Error al escribir log:', error.message);
     }
 }
 

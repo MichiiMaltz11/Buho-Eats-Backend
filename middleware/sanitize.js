@@ -104,6 +104,7 @@ function detectSQLInjection(str) {
 /**
  * Valida que el input no contenga SQL injection
  */
+
 function validateNoSQLInjection(data) {
     const suspicious = [];
 

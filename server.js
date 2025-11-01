@@ -1,6 +1,6 @@
 /**
  * Buho Eats Backend - Servidor Principal
- * API REST con Node.js vanilla (sin frameworks)
+ * API REST con Node.js vanilla
  */
 
 const http = require('http');
@@ -182,14 +182,14 @@ const server = http.createServer(requestHandler);
 
 server.listen(config.port, () => {
     console.log('\n╔══════════════════════════════════════════════════════╗');
-    console.log('║           🦉 Buho Eats Backend Server              ║');
+    console.log('║           Buho Eats Server              ║');
     console.log('╚══════════════════════════════════════════════════════╝\n');
-    console.log(`🚀 Servidor corriendo en: http://localhost:${config.port}`);
-    console.log(`📊 Base de datos: ${config.database.path}`);
-    console.log(`🔒 Rate limiting: ${config.security.maxLoginAttempts} intentos, ${config.security.lockoutDuration / 60000} min bloqueo`);
-    console.log(`🌐 CORS permitido desde: ${config.cors.allowedOrigins.join(', ')}`);
-    console.log(`📝 Nivel de logs: ${config.logging.level}`);
-    console.log('\n✅ Servidor listo para recibir peticiones\n');
+    console.log(`Servidor corriendo en: http://localhost:${config.port}`);
+    console.log(`Base de datos: ${config.database.path}`);
+    console.log(`Rate limiting: ${config.security.maxLoginAttempts} intentos, ${config.security.lockoutDuration / 60000} min bloqueo`);
+    console.log(`CORS permitido desde: ${config.cors.allowedOrigins.join(', ')}`);
+    console.log(`Nivel de logs: ${config.logging.level}`);
+    console.log('\nServidor listo para recibir peticiones\n');
     
     logger.info('Servidor iniciado', { port: config.port });
 });
@@ -199,10 +199,9 @@ server.listen(config.port, () => {
  */
 server.on('error', (error) => {
     if (error.code === 'EADDRINUSE') {
-        console.error(`\n❌ Error: El puerto ${config.port} ya está en uso`);
-        console.error('   Intenta cambiar el puerto en el archivo .env o cerrar el proceso que lo está usando\n');
+        console.error(`\nError: El puerto ${config.port} ya está en uso`);
     } else {
-        console.error('\n❌ Error del servidor:', error.message, '\n');
+        console.error('\nError del servidor:', error.message, '\n');
     }
     
     logger.exception(error, { context: 'server-startup' });
@@ -213,20 +212,20 @@ server.on('error', (error) => {
  * Manejo de cierre graceful
  */
 process.on('SIGINT', () => {
-    console.log('\n\n🛑 Cerrando servidor...');
+    console.log('\n\nCerrando servidor...');
     
     server.close(() => {
-        console.log('✅ Servidor cerrado correctamente');
+        console.log('Servidor cerrado correctamente');
         logger.info('Servidor detenido');
         process.exit(0);
     });
 });
 
 process.on('SIGTERM', () => {
-    console.log('\n\n🛑 Señal SIGTERM recibida, cerrando servidor...');
+    console.log('\n\nSeñal SIGTERM recibida, cerrando servidor...');
     
     server.close(() => {
-        console.log('✅ Servidor cerrado correctamente');
+        console.log('Servidor cerrado correctamente');
         logger.info('Servidor detenido por SIGTERM');
         process.exit(0);
     });

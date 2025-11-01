@@ -31,10 +31,10 @@ function initDatabase() {
         // Habilitar foreign keys
         db.pragma('foreign_keys = ON');
 
-        console.log('✅ Base de datos conectada:', dbPath);
+        console.log('Base de datos conectada:', dbPath);
         return db;
     } catch (error) {
-        console.error('❌ Error al conectar con la base de datos:', error.message);
+        console.error('Error al conectar con la base de datos:', error.message);
         process.exit(1);
     }
 }
@@ -55,7 +55,7 @@ function getDatabase() {
 function closeDatabase() {
     if (db) {
         db.close();
-        console.log('✅ Base de datos cerrada');
+        console.log('Base de datos cerrada');
     }
 }
 
@@ -72,7 +72,7 @@ function query(sql, params = []) {
             return database.prepare(sql).run(params);
         }
     } catch (error) {
-        console.error('❌ Error en query:', error.message);
+        console.error('Error en query:', error.message);
         throw error;
     }
 }

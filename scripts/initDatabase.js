@@ -33,18 +33,18 @@ try {
             // Mostrar progreso para las operaciones importantes
             if (statement.includes('CREATE TABLE')) {
                 const tableName = statement.match(/CREATE TABLE (?:IF NOT EXISTS )?(\w+)/i)?.[1];
-                console.log(`✅ Tabla creada: ${tableName}`);
+                console.log(`Tabla creada: ${tableName}`);
             } else if (statement.includes('CREATE INDEX')) {
                 const indexName = statement.match(/CREATE INDEX (?:IF NOT EXISTS )?(\w+)/i)?.[1];
-                console.log(`✅ Índice creado: ${indexName}`);
+                console.log(`Índice creado: ${indexName}`);
             } else if (statement.includes('CREATE TRIGGER')) {
                 const triggerName = statement.match(/CREATE TRIGGER (?:IF NOT EXISTS )?(\w+)/i)?.[1];
-                console.log(`✅ Trigger creado: ${triggerName}`);
+                console.log(`Trigger creado: ${triggerName}`);
             } else if (statement.includes('INSERT')) {
-                console.log(`✅ Datos iniciales insertados`);
+                console.log(`Datos iniciales insertados`);
             }
         } catch (error) {
-            console.error(`❌ Error en statement ${index + 1}:`, error.message);
+            console.error(`Error en statement ${index + 1}:`, error.message);
         }
     });
 
@@ -55,19 +55,19 @@ try {
         ORDER BY name
     `).all();
 
-    console.log('\n📊 Tablas en la base de datos:');
+    console.log('\nTablas en la base de datos:');
     tables.forEach(table => {
         const count = db.prepare(`SELECT COUNT(*) as count FROM ${table.name}`).get();
         console.log(`   - ${table.name} (${count.count} registros)`);
     });
 
-    console.log('\n✅ Base de datos inicializada correctamente!');
-    console.log('\n📋 Usuario admin por defecto:');
+    console.log('\nBase de datos inicializada correctamente!');
+    console.log('\nUsuario admin por defecto:');
     console.log('   Email: admin@buhoeats.com');
     console.log('   Password: Admin123!');
     console.log('   Rol: admin\n');
 
 } catch (error) {
-    console.error('❌ Error al inicializar la base de datos:', error.message);
+    console.error('Error al inicializar la base de datos:', error.message);
     process.exit(1);
 }

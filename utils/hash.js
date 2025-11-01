@@ -17,7 +17,7 @@ async function hashPassword(password) {
         const hash = await bcrypt.hash(password, salt);
         return hash;
     } catch (error) {
-        console.error('❌ Error al hashear contraseña:', error.message);
+        console.error('Error al hashear contraseña:', error.message);
         throw new Error('Error al procesar contraseña');
     }
 }
@@ -33,13 +33,13 @@ async function verifyPassword(password, hash) {
         const match = await bcrypt.compare(password, hash);
         return match;
     } catch (error) {
-        console.error('❌ Error al verificar contraseña:', error.message);
+        console.error('Error al verificar contraseña:', error.message);
         return false;
     }
 }
 
 /**
- * Genera un hash rápido para tokens (no usar para contraseñas)
+ * Genera un hash rápido para tokens
  * @param {string} str - String a hashear
  * @returns {string} Hash SHA256
  */
