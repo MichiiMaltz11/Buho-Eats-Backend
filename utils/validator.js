@@ -213,6 +213,34 @@ function validateRegistrationData(data) {
     };
 }
 
+/**
+ * Valida que un valor numérico esté dentro de un rango
+ * @param {number} value - Valor a validar
+ * @param {number} min - Valor mínimo permitido
+ * @param {number} max - Valor máximo permitido
+ * @param {string} fieldName - Nombre del campo (para mensaje de error)
+ * @returns {Object} {isValid: boolean, error: string}
+ */
+function validateRange(value, min, max, fieldName = 'Valor') {
+    const num = Number(value);
+    
+    if (isNaN(num)) {
+        return {
+            isValid: false,
+            error: `${fieldName} debe ser un número válido`
+        };
+    }
+
+    if (num < min || num > max) {
+        return {
+            isValid: false,
+            error: `${fieldName} debe estar entre ${min} y ${max}`
+        };
+    }
+
+    return { isValid: true };
+}
+
 module.exports = {
     isValidEmail,
     validatePassword,
@@ -220,6 +248,7 @@ module.exports = {
     validateRequired,
     validateLength,
     validateInteger,
+    validateRange,
     isValidRole,
     validateRegistrationData
 };

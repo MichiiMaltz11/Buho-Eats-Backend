@@ -5,6 +5,7 @@
 
 const authController = require('../controllers/authController');
 const restaurantController = require('../controllers/restaurantController');
+const reviewController = require('../controllers/reviewController');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 
 /**
@@ -25,6 +26,10 @@ const publicRoutes = {
     },
     'GET /api/restaurants/:id': {
         handler: restaurantController.getRestaurantById,
+        requireAuth: false
+    },
+    'GET /api/reviews': {
+        handler: reviewController.getReviews,
         requireAuth: false
     }
 };
@@ -55,6 +60,21 @@ const protectedRoutes = {
     },
     'DELETE /api/restaurants/:id': {
         handler: restaurantController.deleteRestaurant,
+        requireAuth: true,
+        middleware: authenticateToken
+    },
+    'POST /api/reviews': {
+        handler: reviewController.createReview,
+        requireAuth: true,
+        middleware: authenticateToken
+    },
+    'PUT /api/reviews/:id': {
+        handler: reviewController.updateReview,
+        requireAuth: true,
+        middleware: authenticateToken
+    },
+    'DELETE /api/reviews/:id': {
+        handler: reviewController.deleteReview,
         requireAuth: true,
         middleware: authenticateToken
     }
