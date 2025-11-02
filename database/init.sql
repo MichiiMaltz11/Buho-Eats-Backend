@@ -28,6 +28,8 @@ CREATE TABLE IF NOT EXISTS login_attempts (
 
 -- Índice para búsquedas de intentos por IP
 CREATE INDEX IF NOT EXISTS idx_login_attempts_ip ON login_attempts(ip_address, attempt_time);
+-- Índice para búsquedas de intentos por email (rate limiting combinado)
+CREATE INDEX IF NOT EXISTS idx_login_attempts_email ON login_attempts(email, attempt_time);
 
 -- Tabla de tokens de sesión (opcional, para invalidación)
 CREATE TABLE IF NOT EXISTS sessions (
@@ -44,6 +46,21 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id, is_active);
 CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token_hash);
 
+-- Tabla de tokens invalidados (blacklist)
+CREATE TABLE IF NOT EXISTS token_blacklist (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    token_hash TEXT NOT NULL UNIQUE,
+    user_id INTEGER,
+    reason TEXT CHECK(reason IN ('logout', 'password_change', 'security', 'admin_revoke')),
+    blacklisted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    expires_at DATETIME NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Índice para búsqueda rápida de tokens blacklisted
+CREATE INDEX IF NOT EXISTS idx_blacklist_token ON token_blacklist(token_hash);
+CREATE INDEX IF NOT EXISTS idx_blacklist_expires ON token_blacklist(expires_at);
+
 -- Tabla de restaurantes
 CREATE TABLE IF NOT EXISTS restaurants (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,10 +68,13 @@ CREATE TABLE IF NOT EXISTS restaurants (
     description TEXT,
     address TEXT,
     phone TEXT,
+    email TEXT,
     cuisine_type TEXT,
     price_range TEXT CHECK(price_range IN ('$', '$$', '$$$', '$$$$')),
+    opening_hours TEXT,
     owner_id INTEGER,
     image_url TEXT,
+    rating REAL DEFAULT 0.0,
     average_rating REAL DEFAULT 0.0,
     total_reviews INTEGER DEFAULT 0,
     is_active INTEGER DEFAULT 1 CHECK(is_active IN (0, 1)),

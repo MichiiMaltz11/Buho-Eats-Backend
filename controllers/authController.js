@@ -5,7 +5,8 @@
 
 const { query } = require('../config/database');
 const { hashPassword, verifyPassword } = require('../utils/hash');
-const { generateToken } = require('../utils/jwt');
+const { generateToken, extractTokenFromHeader } = require('../utils/jwt');
+const { addToBlacklist } = require('../utils/tokenBlacklist');
 const { validateRegistrationData, isValidEmail } = require('../utils/validator');
 const { recordLoginAttempt, checkRateLimit } = require('../middleware/rateLimit');
 const logger = require('../utils/logger');
@@ -121,8 +122,8 @@ async function login(req, body) {
             };
         }
 
-        // Verificar rate limiting
-        const rateLimitResult = checkRateLimit(req);
+        // Verificar rate limiting (ahora incluye verificación por email)
+        const rateLimitResult = checkRateLimit(req, email);
         
         if (!rateLimitResult.allowed) {
             return {
@@ -130,7 +131,8 @@ async function login(req, body) {
                 statusCode: rateLimitResult.statusCode,
                 error: rateLimitResult.error,
                 minutesRemaining: rateLimitResult.minutesRemaining,
-                retryAfter: rateLimitResult.retryAfter
+                retryAfter: rateLimitResult.retryAfter,
+                blockedBy: rateLimitResult.blockedBy
             };
         }
 
@@ -282,10 +284,24 @@ function verifyTokenEndpoint(req) {
  */
 function logout(req) {
     try {
-        // En un sistema JWT stateless, el logout es principalmente client-side
-        // El cliente debe eliminar el token
+        // Extraer token del header
+        const authHeader = req.headers?.authorization;
+        const token = extractTokenFromHeader(authHeader);
         
-        logger.info('Usuario cerró sesión', { userId: req.user?.id });
+        if (token) {
+            // Agregar token a la blacklist
+            const blacklisted = addToBlacklist(token, req.user?.id, 'logout');
+            
+            if (blacklisted) {
+                logger.info('Usuario cerró sesión y token invalidado', { 
+                    userId: req.user?.id 
+                });
+            } else {
+                logger.warn('Token no pudo ser agregado a blacklist en logout', { 
+                    userId: req.user?.id 
+                });
+            }
+        }
 
         return {
             success: true,

@@ -36,9 +36,10 @@ function cleanOldAttempts() {
 }
 
 /**
- * Verifica si una IP está bloqueada por rate limiting
+ * Verifica si una IP o Email está bloqueada por rate limiting
+ * Ahora verifica AMBOS: IP y Email para prevenir ataques con VPN
  */
-function checkRateLimit(req) {
+function checkRateLimit(req, email = null) {
     try {
         const ip = getClientIP(req);
         const cutoffTime = new Date(Date.now() - config.security.lockoutDuration);
@@ -47,8 +48,8 @@ function checkRateLimit(req) {
         // Limpiar intentos viejos primero
         cleanOldAttempts();
 
-        // Contar intentos fallidos recientes
-        const result = query(`
+        // Verificar intentos fallidos por IP
+        const ipAttempts = query(`
             SELECT COUNT(*) as count 
             FROM login_attempts 
             WHERE ip_address = ? 
@@ -56,10 +57,24 @@ function checkRateLimit(req) {
             AND attempt_time > ?
         `, [ip, cutoffISO]);
 
-        const failedAttempts = result[0]?.count || 0;
+        const ipFailedAttempts = ipAttempts[0]?.count || 0;
 
-        if (failedAttempts >= config.security.maxLoginAttempts) {
-            // Obtener tiempo del último intento
+        // Verificar intentos fallidos por Email (si se proporciona)
+        let emailFailedAttempts = 0;
+        if (email) {
+            const emailAttemptsResult = query(`
+                SELECT COUNT(*) as count 
+                FROM login_attempts 
+                WHERE email = ? 
+                AND success = 0 
+                AND attempt_time > ?
+            `, [email.toLowerCase(), cutoffISO]);
+
+            emailFailedAttempts = emailAttemptsResult[0]?.count || 0;
+        }
+
+        // Verificar bloqueo por IP
+        if (ipFailedAttempts >= config.security.maxLoginAttempts) {
             const lastAttempt = query(`
                 SELECT attempt_time 
                 FROM login_attempts 
@@ -78,24 +93,68 @@ function checkRateLimit(req) {
 
                     logger.warn('IP bloqueada por rate limiting', {
                         ip,
-                        failedAttempts,
+                        failedAttempts: ipFailedAttempts,
                         minutesRemaining
                     });
 
                     return {
                         allowed: false,
                         statusCode: 429,
-                        error: 'Demasiados intentos fallidos',
+                        error: 'Demasiados intentos fallidos desde esta IP',
                         minutesRemaining,
-                        retryAfter: Math.ceil((lockoutEnd - now) / 1000) // segundos
+                        retryAfter: Math.ceil((lockoutEnd - now) / 1000),
+                        blockedBy: 'ip'
                     };
                 }
             }
         }
 
+        // Verificar bloqueo por Email (protección contra ataques con VPN)
+        if (email && emailFailedAttempts >= config.security.maxLoginAttempts) {
+            const lastAttempt = query(`
+                SELECT attempt_time 
+                FROM login_attempts 
+                WHERE email = ? 
+                ORDER BY attempt_time DESC 
+                LIMIT 1
+            `, [email.toLowerCase()]);
+
+            if (lastAttempt.length > 0) {
+                const lastAttemptTime = new Date(lastAttempt[0].attempt_time);
+                const lockoutEnd = new Date(lastAttemptTime.getTime() + config.security.lockoutDuration);
+                const now = new Date();
+
+                if (now < lockoutEnd) {
+                    const minutesRemaining = Math.ceil((lockoutEnd - now) / 60000);
+
+                    logger.warn('Email bloqueado por rate limiting (protección VPN)', {
+                        email,
+                        ip,
+                        failedAttempts: emailFailedAttempts,
+                        minutesRemaining
+                    });
+
+                    return {
+                        allowed: false,
+                        statusCode: 429,
+                        error: 'Demasiados intentos fallidos para esta cuenta',
+                        minutesRemaining,
+                        retryAfter: Math.ceil((lockoutEnd - now) / 1000),
+                        blockedBy: 'email'
+                    };
+                }
+            }
+        }
+
+        // Calcular intentos restantes (el menor de los dos)
+        const remainingAttempts = Math.min(
+            config.security.maxLoginAttempts - ipFailedAttempts,
+            email ? config.security.maxLoginAttempts - emailFailedAttempts : config.security.maxLoginAttempts
+        );
+
         return {
             allowed: true,
-            remainingAttempts: config.security.maxLoginAttempts - failedAttempts
+            remainingAttempts: Math.max(0, remainingAttempts)
         };
 
     } catch (error) {
@@ -124,12 +183,20 @@ function recordLoginAttempt(req, email, success) {
             ip
         );
 
-        // Si fue exitoso, limpiar intentos fallidos de esa IP
+        // Si fue exitoso, limpiar intentos fallidos de esa IP y Email
         if (success) {
             query(`
                 DELETE FROM login_attempts 
                 WHERE ip_address = ? AND success = 0
             `, [ip]);
+            
+            // También limpiar intentos fallidos de ese email
+            if (email) {
+                query(`
+                    DELETE FROM login_attempts 
+                    WHERE email = ? AND success = 0
+                `, [email.toLowerCase()]);
+            }
         }
 
     } catch (error) {
@@ -174,5 +241,6 @@ module.exports = {
     checkRateLimit,
     recordLoginAttempt,
     getRateLimitStats,
-    getClientIP
+    getClientIP,
+    cleanOldAttempts
 };

@@ -10,10 +10,14 @@ const { initDatabase } = require('./config/database');
 const { findRoute, executeRoute } = require('./routes/api');
 const { applyCorsHeaders, handlePreflight } = require('./middleware/cors');
 const { sanitizeBody, validateNoSQLInjection } = require('./middleware/sanitize');
+const { scheduleMaintenance } = require('./utils/maintenance');
 const logger = require('./utils/logger');
 
 // Inicializar base de datos
 initDatabase();
+
+// Programar tareas de mantenimiento (cada 1 hora)
+scheduleMaintenance(1);
 
 /**
  * Parsea el body de una petición
@@ -137,25 +141,37 @@ async function requestHandler(req, res) {
         }
 
         // Ejecutar ruta
-        const result = await executeRoute(routeMatch.route, req, body);
+        const result = await executeRoute(routeMatch.route, req, body, routeMatch.params);
 
         // Enviar respuesta
-        const responseData = result.success ? result.data : { 
-            error: result.error,
-            ...(result.errors && { errors: result.errors }),
-            ...(result.minutesRemaining && { minutesRemaining: result.minutesRemaining }),
-            ...(result.remainingAttempts !== undefined && { remainingAttempts: result.remainingAttempts })
+        // Mantener la estructura completa del resultado
+        const responsePayload = {
+            success: result.success
         };
+
+        if (result.success) {
+            // Si es exitoso, incluir data si existe
+            if (result.data) {
+                responsePayload.data = result.data;
+            }
+            // También incluir message si existe
+            if (result.message) {
+                responsePayload.message = result.message;
+            }
+        } else {
+            // Si hay error, incluir todos los detalles del error
+            if (result.error) responsePayload.error = result.error;
+            if (result.errors) responsePayload.errors = result.errors;
+            if (result.minutesRemaining) responsePayload.minutesRemaining = result.minutesRemaining;
+            if (result.remainingAttempts !== undefined) responsePayload.remainingAttempts = result.remainingAttempts;
+        }
 
         // Agregar header Retry-After si existe
         if (result.retryAfter) {
             res.setHeader('Retry-After', result.retryAfter);
         }
 
-        sendJSON(res, result.statusCode, {
-            success: result.success,
-            ...responseData
-        });
+        sendJSON(res, result.statusCode, responsePayload);
 
         // Log del request
         const duration = Date.now() - startTime;
@@ -181,9 +197,9 @@ async function requestHandler(req, res) {
 const server = http.createServer(requestHandler);
 
 server.listen(config.port, () => {
-    console.log('\n╔══════════════════════════════════════════════════════╗');
-    console.log('║           Buho Eats Server              ║');
-    console.log('╚══════════════════════════════════════════════════════╝\n');
+    console.log('\n╔═══════════════════════════════════════════════════╗');
+    console.log('║           Buho Eats Server                        ║');
+    console.log('╚═══════════════════════════════════════════════════╝\n');
     console.log(`Servidor corriendo en: http://localhost:${config.port}`);
     console.log(`Base de datos: ${config.database.path}`);
     console.log(`Rate limiting: ${config.security.maxLoginAttempts} intentos, ${config.security.lockoutDuration / 60000} min bloqueo`);

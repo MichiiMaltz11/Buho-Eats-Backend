@@ -4,6 +4,7 @@
  */
 
 const { verifyToken, extractTokenFromHeader } = require('../utils/jwt');
+const { isBlacklisted } = require('../utils/tokenBlacklist');
 const logger = require('../utils/logger');
 
 /**
@@ -19,6 +20,19 @@ async function authenticateToken(req, res) {
                 authenticated: false,
                 statusCode: 401,
                 error: 'Token de autenticación requerido'
+            };
+        }
+
+        // Verificar si el token está en la blacklist
+        if (isBlacklisted(token)) {
+            logger.warn('Token blacklisted intentó ser usado', {
+                ip: req.headers['x-forwarded-for'] || req.connection?.remoteAddress
+            });
+            
+            return {
+                authenticated: false,
+                statusCode: 401,
+                error: 'Token inválido o revocado'
             };
         }
 

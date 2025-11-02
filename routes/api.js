@@ -4,6 +4,7 @@
  */
 
 const authController = require('../controllers/authController');
+const restaurantController = require('../controllers/restaurantController');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 
 /**
@@ -16,6 +17,14 @@ const publicRoutes = {
     },
     'POST /api/auth/login': {
         handler: authController.login,
+        requireAuth: false
+    },
+    'GET /api/restaurants': {
+        handler: restaurantController.getAllRestaurants,
+        requireAuth: false
+    },
+    'GET /api/restaurants/:id': {
+        handler: restaurantController.getRestaurantById,
         requireAuth: false
     }
 };
@@ -31,6 +40,21 @@ const protectedRoutes = {
     },
     'POST /api/auth/logout': {
         handler: authController.logout,
+        requireAuth: true,
+        middleware: authenticateToken
+    },
+    'POST /api/restaurants': {
+        handler: restaurantController.createRestaurant,
+        requireAuth: true,
+        middleware: authenticateToken
+    },
+    'PUT /api/restaurants/:id': {
+        handler: restaurantController.updateRestaurant,
+        requireAuth: true,
+        middleware: authenticateToken
+    },
+    'DELETE /api/restaurants/:id': {
+        handler: restaurantController.deleteRestaurant,
         requireAuth: true,
         middleware: authenticateToken
     }
@@ -69,8 +93,44 @@ function findRoute(method, url) {
         };
     }
 
-    // TODO: Agregar soporte para rutas con parámetros dinámicos
-    // Por ejemplo: GET /api/restaurants/:id
+    // Buscar rutas con parámetros dinámicos (ej: /api/restaurants/:id)
+    const urlParts = cleanUrl.split('/').filter(p => p);
+    
+    for (const [pattern, route] of Object.entries(allRoutes)) {
+        const [routeMethod, routePath] = pattern.split(' ');
+        
+        // Verificar que el método coincida
+        if (routeMethod !== method) continue;
+        
+        const routeParts = routePath.split('/').filter(p => p);
+        
+        // Verificar que tengan la misma cantidad de segmentos
+        if (routeParts.length !== urlParts.length) continue;
+        
+        // Verificar cada segmento
+        const params = {};
+        let matches = true;
+        
+        for (let i = 0; i < routeParts.length; i++) {
+            if (routeParts[i].startsWith(':')) {
+                // Es un parámetro dinámico
+                const paramName = routeParts[i].substring(1);
+                params[paramName] = urlParts[i];
+            } else if (routeParts[i] !== urlParts[i]) {
+                // No coincide
+                matches = false;
+                break;
+            }
+        }
+        
+        if (matches) {
+            return {
+                found: true,
+                route,
+                params
+            };
+        }
+    }
 
     return {
         found: false,
@@ -82,7 +142,7 @@ function findRoute(method, url) {
 /**
  * Ejecuta el handler de una ruta con middlewares
  */
-async function executeRoute(route, req, body) {
+async function executeRoute(route, req, body, params = {}) {
     try {
         // Si requiere autenticación, ejecutar middleware
         if (route.requireAuth && route.middleware) {
@@ -100,7 +160,15 @@ async function executeRoute(route, req, body) {
         }
 
         // Ejecutar el handler del controlador
-        const result = await route.handler(req, body);
+        // Si hay parámetros (ej: :id), pasarlos como argumentos adicionales
+        let result;
+        if (Object.keys(params).length > 0) {
+            // Para rutas como PUT /api/restaurants/:id
+            result = await route.handler(req, params.id, body);
+        } else {
+            result = await route.handler(req, body);
+        }
+        
         return result;
 
     } catch (error) {
