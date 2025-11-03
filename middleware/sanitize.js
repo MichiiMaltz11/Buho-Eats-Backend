@@ -44,8 +44,9 @@ function sanitizeBody(body) {
     }
 
     try {
+        logger.debug('Body ANTES de sanitizar:', body);
         const sanitized = sanitizeObject(body);
-        logger.debug('Body sanitizado correctamente');
+        logger.debug('Body DESPUÉS de sanitizar:', sanitized);
         return sanitized;
     } catch (error) {
         logger.error('Error al sanitizar body', { error: error.message });

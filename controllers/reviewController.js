@@ -13,19 +13,23 @@ const logger = require('../utils/logger');
  */
 function createReview(req, body) {
     try {
+        logger.info('📝 Iniciando creación de reseña', { body, userId: req.user?.id });
+        
         const { restaurantId, rating, comment, visitDate } = body;
 
         // Validaciones
-        if (!validateRequired(restaurantId, 'ID del restaurante').isValid) {
+        if (!restaurantId || typeof restaurantId !== 'number') {
+            logger.warn('❌ Validación fallida: restaurantId requerido o inválido', { restaurantId, type: typeof restaurantId });
             return {
                 success: false,
                 statusCode: 400,
-                error: 'ID del restaurante es requerido'
+                error: 'ID del restaurante es requerido y debe ser un número'
             };
         }
 
         const ratingValidation = validateRange(rating, 1, 5, 'Calificación');
         if (!ratingValidation.isValid) {
+            logger.warn('❌ Validación fallida: rating inválido', { rating });
             return {
                 success: false,
                 statusCode: 400,
@@ -34,6 +38,7 @@ function createReview(req, body) {
         }
 
         if (!comment || comment.trim().length === 0) {
+            logger.warn('❌ Validación fallida: comentario vacío');
             return {
                 success: false,
                 statusCode: 400,
@@ -42,6 +47,7 @@ function createReview(req, body) {
         }
 
         if (comment.length > 1000) {
+            logger.warn('❌ Validación fallida: comentario muy largo', { length: comment.length });
             return {
                 success: false,
                 statusCode: 400,
@@ -52,12 +58,15 @@ function createReview(req, body) {
         // Verificar que el restaurante existe
         const restaurants = query('SELECT id FROM restaurants WHERE id = ? AND is_active = 1', [restaurantId]);
         if (restaurants.length === 0) {
+            logger.warn('❌ Restaurante no encontrado', { restaurantId });
             return {
                 success: false,
                 statusCode: 404,
                 error: 'Restaurante no encontrado'
             };
         }
+
+        logger.info('✅ Validaciones pasadas, verificando reseña existente...');
 
         // Verificar si el usuario ya tiene una reseña para este restaurante
         const existingReview = query(
