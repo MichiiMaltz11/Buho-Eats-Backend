@@ -6,6 +6,7 @@
 const authController = require('../controllers/authController');
 const restaurantController = require('../controllers/restaurantController');
 const reviewController = require('../controllers/reviewController');
+const menuController = require('../controllers/menuController');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 
 /**
@@ -30,6 +31,14 @@ const publicRoutes = {
     },
     'GET /api/reviews': {
         handler: reviewController.getReviews,
+        requireAuth: false
+    },
+    'GET /api/menu': {
+        handler: menuController.getMenuItems,
+        requireAuth: false
+    },
+    'GET /api/menu/:id': {
+        handler: menuController.getMenuItem,
         requireAuth: false
     }
 };
@@ -75,6 +84,21 @@ const protectedRoutes = {
     },
     'DELETE /api/reviews/:id': {
         handler: reviewController.deleteReview,
+        requireAuth: true,
+        middleware: authenticateToken
+    },
+    'POST /api/menu': {
+        handler: menuController.createMenuItem,
+        requireAuth: true,
+        middleware: authenticateToken
+    },
+    'PUT /api/menu/:id': {
+        handler: menuController.updateMenuItem,
+        requireAuth: true,
+        middleware: authenticateToken
+    },
+    'DELETE /api/menu/:id': {
+        handler: menuController.deleteMenuItem,
         requireAuth: true,
         middleware: authenticateToken
     }

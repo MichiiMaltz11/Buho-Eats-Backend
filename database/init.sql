@@ -131,6 +131,25 @@ CREATE TABLE IF NOT EXISTS review_responses (
     FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- Tabla de elementos del menú
+CREATE TABLE IF NOT EXISTS menu_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    restaurant_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    description TEXT,
+    price REAL NOT NULL CHECK(price >= 0),
+    category TEXT CHECK(category IN ('Entrada', 'Plato Principal', 'Postre', 'Bebida', 'Otro')),
+    image_url TEXT,
+    is_available INTEGER DEFAULT 1 CHECK(is_available IN (0, 1)),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE
+);
+
+-- Índice para elementos del menú por restaurante
+CREATE INDEX IF NOT EXISTS idx_menu_items_restaurant ON menu_items(restaurant_id);
+CREATE INDEX IF NOT EXISTS idx_menu_items_category ON menu_items(category);
+
 -- Insertar usuario admin por defecto (contraseña: Admin123!)
 -- Hash generado con bcrypt rounds=10
 INSERT OR IGNORE INTO users (id, first_name, last_name, email, password_hash, role)
@@ -155,6 +174,13 @@ CREATE TRIGGER IF NOT EXISTS update_restaurants_timestamp
 AFTER UPDATE ON restaurants
 BEGIN
     UPDATE restaurants SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+END;
+
+-- Trigger para actualizar updated_at automáticamente en menu_items
+CREATE TRIGGER IF NOT EXISTS update_menu_items_timestamp 
+AFTER UPDATE ON menu_items
+BEGIN
+    UPDATE menu_items SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
 END;
 
 -- Trigger para actualizar el rating promedio del restaurante
