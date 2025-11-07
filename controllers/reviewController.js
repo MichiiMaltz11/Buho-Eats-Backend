@@ -147,7 +147,8 @@ function getReviews(req) {
                 r.created_at,
                 r.updated_at,
                 u.first_name,
-                u.last_name
+                u.last_name,
+                u.profile_photo
             FROM reviews r
             JOIN users u ON r.user_id = u.id
             WHERE r.restaurant_id = ? AND r.is_active = 1
