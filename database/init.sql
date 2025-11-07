@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS restaurants (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     description TEXT,
-    address TEXT,
+    address TEXT NOT NULL,
     phone TEXT,
     email TEXT,
     cuisine_type TEXT,
