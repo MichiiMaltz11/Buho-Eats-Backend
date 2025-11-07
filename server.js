@@ -65,6 +65,59 @@ function sendJSON(res, statusCode, data) {
 }
 
 /**
+ * Sirve archivos estáticos desde /public/uploads
+ */
+function serveStaticFile(req, res, pathname) {
+    const fs = require('fs');
+    const path = require('path');
+    
+    // Extraer el filename (sin /uploads/)
+    const filename = pathname.replace('/uploads/', '');
+    
+    // Validar que no haya path traversal (../)
+    if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+        res.statusCode = 400;
+        res.end('Invalid filename');
+        return;
+    }
+    
+    // Ruta completa del archivo
+    const filepath = path.join(__dirname, 'public', 'uploads', filename);
+    
+    // Verificar que el archivo existe
+    if (!fs.existsSync(filepath)) {
+        res.statusCode = 404;
+        res.end('File not found');
+        return;
+    }
+    
+    // Determinar el content-type basado en la extensión
+    const ext = path.extname(filename).toLowerCase();
+    const mimeTypes = {
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png',
+        '.gif': 'image/gif',
+        '.webp': 'image/webp'
+    };
+    
+    const contentType = mimeTypes[ext] || 'application/octet-stream';
+    
+    // Leer y enviar el archivo
+    try {
+        const fileContent = fs.readFileSync(filepath);
+        res.statusCode = 200;
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache por 1 año
+        res.end(fileContent);
+    } catch (error) {
+        logger.error('Error al servir archivo estático', { error: error.message, filepath });
+        res.statusCode = 500;
+        res.end('Internal server error');
+    }
+}
+
+/**
  * Manejador principal de peticiones
  */
 async function requestHandler(req, res) {
@@ -72,6 +125,11 @@ async function requestHandler(req, res) {
     const parsedUrl = url.parse(req.url, true);
 
     try {
+        // Servir archivos estáticos desde /uploads
+        if (parsedUrl.pathname.startsWith('/uploads/')) {
+            return serveStaticFile(req, res, parsedUrl.pathname);
+        }
+
         // Aplicar CORS
         const corsResult = applyCorsHeaders(req, res);
         
@@ -83,6 +141,27 @@ async function requestHandler(req, res) {
             return;
         }
 
+        // Aplicar Security Headers
+        // Content Security Policy - Previene XSS
+        res.setHeader('Content-Security-Policy', 
+            "default-src 'self'; " +
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +  // unsafe-inline/eval necesarios para frameworks
+            "style-src 'self' 'unsafe-inline'; " +
+            "img-src 'self' data: https: blob:; " +  // Permitir imágenes de cualquier HTTPS
+            "font-src 'self' data:; " +
+            "connect-src 'self' http://localhost:3000 http://127.0.0.1:3000; " +
+            "frame-ancestors 'none'; " +  // Previene clickjacking
+            "base-uri 'self'; " +
+            "form-action 'self'"
+        );
+        
+        // Otros security headers
+        res.setHeader('X-Content-Type-Options', 'nosniff');  // Previene MIME sniffing
+        res.setHeader('X-Frame-Options', 'DENY');  // Previene clickjacking
+        res.setHeader('X-XSS-Protection', '1; mode=block');  // XSS protection (legacy)
+        res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');  // Control de referrer
+        res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');  // Permisos restrictivos
+
         // Manejar preflight OPTIONS
         if (req.method === 'OPTIONS') {
             const preflightResult = handlePreflight(req, res);
@@ -93,26 +172,39 @@ async function requestHandler(req, res) {
 
         // Parsear body si existe
         let body = {};
-        if (['POST', 'PUT', 'PATCH'].includes(req.method)) {
+        if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
             try {
                 body = await parseBody(req);
                 
-                // Sanitizar body
-                body = sanitizeBody(body);
+                // NO sanitizar rutas de upload ni actualización de fotos (contienen URLs/Base64)
+                const isUploadRoute = parsedUrl.pathname.includes('/api/upload/') || 
+                                     parsedUrl.pathname.includes('/upload/') ||
+                                     parsedUrl.pathname.includes('/users/photo');
                 
-                // Validar SQL injection
-                const sqlValidation = validateNoSQLInjection(body);
-                if (!sqlValidation.safe) {
-                    logger.warn('Intento de SQL injection bloqueado', {
-                        ip: req.connection?.remoteAddress,
-                        suspicious: sqlValidation.suspicious
-                    });
+                logger.debug('Procesando request', {
+                    method: req.method,
+                    path: parsedUrl.pathname,
+                    isUploadRoute: isUploadRoute
+                });
+                
+                if (!isUploadRoute) {
+                    // Sanitizar body
+                    body = sanitizeBody(body);
                     
-                    sendJSON(res, 400, {
-                        success: false,
-                        error: 'Input inválido detectado'
-                    });
-                    return;
+                    // Validar SQL injection
+                    const sqlValidation = validateNoSQLInjection(body);
+                    if (!sqlValidation.safe) {
+                        logger.warn('Intento de SQL injection bloqueado', {
+                            ip: req.connection?.remoteAddress,
+                            suspicious: sqlValidation.suspicious
+                        });
+                        
+                        sendJSON(res, 400, {
+                            success: false,
+                            error: 'Input inválido detectado'
+                        });
+                        return;
+                    }
                 }
                 
             } catch (error) {

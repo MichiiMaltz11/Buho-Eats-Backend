@@ -7,6 +7,9 @@ const authController = require('../controllers/authController');
 const restaurantController = require('../controllers/restaurantController');
 const reviewController = require('../controllers/reviewController');
 const menuController = require('../controllers/menuController');
+const userController = require('../controllers/userController');
+const favoritesController = require('../controllers/favoritesController');
+const uploadController = require('../controllers/uploadController');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 
 /**
@@ -99,6 +102,61 @@ const protectedRoutes = {
     },
     'DELETE /api/menu/:id': {
         handler: menuController.deleteMenuItem,
+        requireAuth: true,
+        middleware: authenticateToken
+    },
+    'GET /api/users/profile': {
+        handler: userController.getProfile,
+        requireAuth: true,
+        middleware: authenticateToken
+    },
+    'PUT /api/users/profile': {
+        handler: userController.updateProfile,
+        requireAuth: true,
+        middleware: authenticateToken
+    },
+    'PUT /api/users/password': {
+        handler: userController.updatePassword,
+        requireAuth: true,
+        middleware: authenticateToken
+    },
+    'PUT /api/users/photo': {
+        handler: userController.updateProfilePhoto,
+        requireAuth: true,
+        middleware: authenticateToken
+    },
+    'DELETE /api/users/photo': {
+        handler: userController.deleteProfilePhoto,
+        requireAuth: true,
+        middleware: authenticateToken
+    },
+    'GET /api/favorites': {
+        handler: favoritesController.getUserFavorites,
+        requireAuth: true,
+        middleware: authenticateToken
+    },
+    'POST /api/favorites': {
+        handler: favoritesController.addFavorite,
+        requireAuth: true,
+        middleware: authenticateToken
+    },
+    'DELETE /api/favorites': {
+        handler: favoritesController.removeFavorite,
+        requireAuth: true,
+        middleware: authenticateToken
+    },
+    'POST /api/favorites/check': {
+        handler: favoritesController.checkFavorite,
+        requireAuth: true,
+        middleware: authenticateToken
+    },
+    'POST /api/upload/image': {
+        handler: uploadController.uploadImage,
+        requireAuth: true,
+        middleware: authenticateToken
+    },
+    'DELETE /api/upload/image/:filename': {
+        handler: uploadController.deleteImage,
         requireAuth: true,
         middleware: authenticateToken
     }
