@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
     email TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
     role TEXT NOT NULL DEFAULT 'user' CHECK(role IN ('user', 'owner', 'admin')),
+    profile_photo TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     is_active INTEGER DEFAULT 1 CHECK(is_active IN (0, 1))
@@ -131,6 +132,21 @@ CREATE TABLE IF NOT EXISTS review_responses (
     FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+-- Tabla de favoritos de usuarios
+CREATE TABLE IF NOT EXISTS user_favorites (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    restaurant_id INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE,
+    UNIQUE(user_id, restaurant_id)
+);
+
+-- Índices para favoritos
+CREATE INDEX IF NOT EXISTS idx_favorites_user ON user_favorites(user_id);
+CREATE INDEX IF NOT EXISTS idx_favorites_restaurant ON user_favorites(restaurant_id);
+
 -- Tabla de elementos del menú
 CREATE TABLE IF NOT EXISTS menu_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -237,3 +253,61 @@ BEGIN
         )
     WHERE id = OLD.restaurant_id;
 END;
+
+-- ========================================
+-- DATOS DE DEMOSTRACIÓN
+-- ========================================
+
+-- Insertar usuario owner de prueba (contraseña: Admin123!)
+INSERT OR IGNORE INTO users (id, first_name, last_name, email, password_hash, role)
+VALUES 
+    (2, 'Marco', 'Rossi', 'owner@buhoeats.com', '$2b$10$rGdX8kN5Z.qVN7YXfZ5Riu8kJWxL5h3yfz9K7xY.2KYWQGfZqX0je', 'owner');
+
+-- Insertar restaurantes de demostración (con imágenes locales)
+-- Todos pertenecen al owner_id 2
+INSERT OR IGNORE INTO restaurants (id, name, description, address, phone, email, cuisine_type, price_range, opening_hours, owner_id, image_url)
+VALUES 
+    (1, 'La Bella Notte', 'Auténtica cocina italiana con recetas tradicionales de la Toscana. Ambiente acogedor y romántico perfecto para cenas especiales.', 'Av. Revolución 1234, Col. Centro', '555-0101', 'info@labellanotte.com', 'Italiana', '$$$', 'Lun-Dom: 13:00-23:00', 2, '/assets/img/restaurants/default/italian-1.jpg'),
+    
+    (2, 'Burger Paradise', 'Las mejores hamburguesas gourmet de la ciudad. Carne 100% Angus, pan artesanal y ingredientes frescos.', 'Calle Juárez 567, Col. Americana', '555-0102', 'contact@burgerparadise.com', 'Americana', '$$', 'Lun-Dom: 12:00-22:00', 2, '/assets/img/restaurants/default/burger-1.jpg'),
+    
+    (3, 'Pizza Napoletana', 'Pizza al estilo napolitano con horno de leña. Masa fermentada 48 horas y ingredientes importados de Italia.', 'Av. Chapultepec 890, Col. Juárez', '555-0103', 'hola@pizzanapoli.com', 'Italiana', '$$', 'Mar-Dom: 13:00-23:00', 2, '/assets/img/restaurants/default/pizza-1.jpg'),
+    
+    (4, 'Sushi Master', 'Sushi y sashimi preparado por chef japonés con 20 años de experiencia. Pescado fresco diariamente.', 'Av. Insurgentes 2341, Col. Del Valle', '555-0104', 'reservas@sushimaster.com', 'Japonesa', '$$$', 'Lun-Sáb: 13:00-22:30', 2, '/assets/img/restaurants/default/sushi-1.jpg'),
+    
+    (5, 'Taquería El Güero', 'Tacos al pastor, carnitas y más. Recetas familiares transmitidas por generaciones.', 'Calle Morelos 123, Col. Centro', '555-0105', 'elguero@tacos.com', 'Mexicana', '$', 'Lun-Dom: 10:00-23:00', 2, '/assets/img/restaurants/default/mexican-1.jpg'),
+    
+    (6, 'Steakhouse Premium', 'Cortes premium de carne madurada. Bar de vinos con más de 200 etiquetas internacionales.', 'Av. Reforma 4567, Col. Polanco', '555-0106', 'info@steakpremium.com', 'Americana', '$$$$', 'Lun-Sáb: 14:00-23:00', 2, '/assets/img/restaurants/default/steak-1.jpg'),
+    
+    (7, 'Golden Dragon', 'Auténtica comida cantonesa. Dim sum, pato pekinés y especialidades del chef.', 'Calle Madero 789, Col. Centro', '555-0107', 'reservaciones@goldendragon.com', 'China', '$$', 'Lun-Dom: 11:00-22:00', 2, '/assets/img/restaurants/default/chinese-1.jpg'),
+    
+    (8, 'Mar y Tierra', 'Especialistas en mariscos frescos. Ceviches, aguachiles y pescados a la talla.', 'Av. Costera 321, Zona Hotelera', '555-0108', 'contacto@marytierra.com', 'Mariscos', '$$$', 'Mar-Dom: 12:00-21:00', 2, '/assets/img/restaurants/default/seafood-1.jpg'),
+    
+    (9, 'Café Bonjour', 'Cafetería francesa con repostería artesanal. Croissants, macarons y café de especialidad.', 'Calle París 456, Col. Condesa', '555-0109', 'bonjour@cafe.com', 'Francesa', '$$', 'Lun-Dom: 07:00-20:00', 2, '/assets/img/restaurants/default/coffee-1.jpg'),
+    
+    (10, 'Sweet Dreams', 'Postres y repostería gourmet. Pasteles personalizados, tartas y chocolates artesanales.', 'Av. Amsterdam 234, Col. Condesa', '555-0110', 'info@sweetdreams.com', 'Postres', '$$', 'Lun-Dom: 10:00-21:00', 2, '/assets/img/restaurants/default/dessert-1.jpg');
+
+-- Insertar menú completo para "La Bella Notte" (Restaurante ID 1)
+INSERT OR IGNORE INTO menu_items (restaurant_id, name, description, price, category, image_url)
+VALUES 
+    -- ENTRADAS
+    (1, 'Bruschetta al Pomodoro', 'Pan tostado con tomates frescos, albahaca, ajo y aceite de oliva extra virgen', 89.00, 'Entrada', '/assets/img/menu/bruschetta.jpg'),
+    (1, 'Insalata Caprese', 'Tomate, mozzarella di bufala, albahaca fresca y reducción de balsámico', 125.00, 'Entrada', '/assets/img/menu/caprese.jpg'),
+    (1, 'Carpaccio di Manzo', 'Finas láminas de res con rúcula, parmesano y aceite de trufa', 165.00, 'Entrada', '/assets/img/menu/carpaccio.jpg'),
+    
+    -- PLATOS PRINCIPALES
+    (1, 'Spaghetti alla Carbonara', 'Pasta con pancetta, huevo, pecorino romano y pimienta negra', 185.00, 'Plato Principal', '/assets/img/menu/pasta-carbonara.jpg'),
+    (1, 'Lasagna alla Bolognese', 'Lasagna casera con ragú de carne, bechamel y parmesano', 195.00, 'Plato Principal', '/assets/img/menu/lasagna.jpg'),
+    (1, 'Ravioli di Ricotta e Spinaci', 'Ravioles rellenos de ricotta y espinaca con salsa de mantequilla y salvia', 205.00, 'Plato Principal', '/assets/img/menu/ravioli.jpg'),
+    (1, 'Risotto ai Funghi Porcini', 'Risotto cremoso con hongos porcini, parmesano y trufa', 225.00, 'Plato Principal', '/assets/img/menu/risotto.jpg'),
+    (1, 'Ossobuco alla Milanese', 'Chamorro de ternera braseado con gremolata, servido con risotto', 345.00, 'Plato Principal', '/assets/img/menu/ossobuco.jpg'),
+    
+    -- POSTRES
+    (1, 'Tiramisù Classico', 'El auténtico postre italiano con café, mascarpone y cacao', 95.00, 'Postre', '/assets/img/menu/tiramisu.jpg'),
+    (1, 'Panna Cotta ai Frutti di Bosco', 'Crema de vainilla con coulis de frutos rojos', 85.00, 'Postre', '/assets/img/menu/panna-cotta.jpg'),
+    (1, 'Gelato Artigianale', 'Helado artesanal (vainilla, chocolate, pistacho o fresa)', 75.00, 'Postre', '/assets/img/menu/gelato.jpg'),
+    
+    -- BEBIDAS
+    (1, 'Espresso Italiano', 'Café espresso preparado con granos importados de Italia', 45.00, 'Bebida', '/assets/img/menu/espresso.jpg'),
+    (1, 'Vino Tinto de la Casa', 'Chianti Classico DOCG (copa)', 95.00, 'Bebida', '/assets/img/menu/wine.jpg'),
+    (1, 'Limoncello', 'Licor tradicional de limón servido helado', 75.00, 'Bebida', '/assets/img/menu/limoncello.jpg');
