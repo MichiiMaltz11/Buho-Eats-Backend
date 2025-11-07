@@ -1,0 +1,372 @@
+/**
+ * Controlador de Usuarios
+ * Maneja la información del perfil del usuario
+ */
+
+const { query } = require('../config/database');
+const { hashPassword, verifyPassword } = require('../utils/hash');
+const { isValidEmail, validateRequired, validateLength } = require('../utils/validator');
+const logger = require('../utils/logger');
+
+/**
+ * Obtener perfil del usuario autenticado
+ */
+function getProfile(req, body) {
+    try {
+        const userId = req.user.id;
+
+        const users = query(`
+            SELECT 
+                id, 
+                first_name, 
+                last_name, 
+                email, 
+                role,
+                profile_photo,
+                created_at
+            FROM users 
+            WHERE id = ? AND is_active = 1
+        `, [userId]);
+
+        if (users.length === 0) {
+            return {
+                success: false,
+                statusCode: 404,
+                error: 'Usuario no encontrado'
+            };
+        }
+
+        const user = users[0];
+
+        return {
+            success: true,
+            statusCode: 200,
+            data: {
+                id: user.id,
+                firstName: user.first_name,
+                lastName: user.last_name,
+                email: user.email,
+                role: user.role,
+                profilePhoto: user.profile_photo,
+                createdAt: user.created_at
+            }
+        };
+
+    } catch (error) {
+        logger.exception(error, { action: 'getProfile' });
+        return {
+            success: false,
+            statusCode: 500,
+            error: 'Error al obtener perfil'
+        };
+    }
+}
+
+/**
+ * Actualizar información del perfil
+ */
+function updateProfile(req, body) {
+    try {
+        const userId = req.user.id;
+        const { firstName, lastName, email } = body;
+
+        // Validaciones
+        const firstNameValidation = validateRequired(firstName, 'Nombre');
+        if (!firstNameValidation.isValid) {
+            return {
+                success: false,
+                statusCode: 400,
+                error: firstNameValidation.error
+            };
+        }
+
+        const lastNameValidation = validateRequired(lastName, 'Apellido');
+        if (!lastNameValidation.isValid) {
+            return {
+                success: false,
+                statusCode: 400,
+                error: lastNameValidation.error
+            };
+        }
+
+        // Validar email
+        if (!isValidEmail(email)) {
+            return {
+                success: false,
+                statusCode: 400,
+                error: 'Email inválido'
+            };
+        }
+
+        // Verificar que el usuario existe
+        const existingUser = query(
+            'SELECT id FROM users WHERE id = ? AND is_active = 1',
+            [userId]
+        );
+
+        if (existingUser.length === 0) {
+            return {
+                success: false,
+                statusCode: 404,
+                error: 'Usuario no encontrado'
+            };
+        }
+
+        // Verificar si el email ya está en uso por otro usuario
+        const emailExists = query(
+            'SELECT id FROM users WHERE email = ? AND id != ? AND is_active = 1',
+            [email, userId]
+        );
+
+        if (emailExists.length > 0) {
+            return {
+                success: false,
+                statusCode: 400,
+                error: 'El correo electrónico ya está en uso'
+            };
+        }
+
+        // Actualizar perfil
+        query(`
+            UPDATE users 
+            SET 
+                first_name = ?, 
+                last_name = ?, 
+                email = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        `, [firstName, lastName, email, userId]);
+
+        return {
+            success: true,
+            statusCode: 200,
+            data: {
+                message: 'Perfil actualizado exitosamente',
+                user: {
+                    id: userId,
+                    firstName,
+                    lastName,
+                    email
+                }
+            }
+        };
+
+    } catch (error) {
+        logger.exception(error, { action: 'updateProfile' });
+        return {
+            success: false,
+            statusCode: 500,
+            error: 'Error al actualizar perfil'
+        };
+    }
+}
+
+/**
+ * Cambiar contraseña del usuario
+ */
+async function updatePassword(req, body) {
+    try {
+        const userId = req.user.id;
+        const { currentPassword, newPassword } = body;
+
+        // Validaciones
+        const currentPwdValidation = validateRequired(currentPassword, 'Contraseña actual');
+        if (!currentPwdValidation.isValid) {
+            return {
+                success: false,
+                statusCode: 400,
+                error: currentPwdValidation.error
+            };
+        }
+
+        const newPwdValidation = validateLength(newPassword, 6, 100, 'Nueva contraseña');
+        if (!newPwdValidation.isValid) {
+            return {
+                success: false,
+                statusCode: 400,
+                error: newPwdValidation.error
+            };
+        }
+
+        // Obtener usuario y su contraseña actual
+        const users = query(
+            'SELECT id, password_hash FROM users WHERE id = ? AND is_active = 1',
+            [userId]
+        );
+
+        if (users.length === 0) {
+            return {
+                success: false,
+                statusCode: 404,
+                error: 'Usuario no encontrado'
+            };
+        }
+
+        const user = users[0];
+
+        // Verificar contraseña actual
+        const isPasswordValid = await verifyPassword(currentPassword, user.password_hash);
+        if (!isPasswordValid) {
+            return {
+                success: false,
+                statusCode: 401,
+                error: 'La contraseña actual es incorrecta'
+            };
+        }
+
+        // Hashear nueva contraseña
+        const hashedPassword = await hashPassword(newPassword);
+
+        // Actualizar contraseña
+        query(`
+            UPDATE users 
+            SET 
+                password_hash = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        `, [hashedPassword, userId]);
+
+        return {
+            success: true,
+            statusCode: 200,
+            data: {
+                message: 'Contraseña actualizada exitosamente'
+            }
+        };
+
+    } catch (error) {
+        logger.exception(error, { action: 'updatePassword' });
+        return {
+            success: false,
+            statusCode: 500,
+            error: 'Error al actualizar contraseña'
+        };
+    }
+}
+
+/**
+ * Actualizar foto de perfil
+ */
+function updateProfilePhoto(req, body) {
+    try {
+        const userId = req.user.id;
+        const { profilePhoto } = body;
+
+        // Validar que se proporcionó una foto
+        if (!profilePhoto) {
+            return {
+                success: false,
+                statusCode: 400,
+                error: 'Foto de perfil requerida'
+            };
+        }
+
+        // Verificar que sea una URL base64 o URL válida
+        const isBase64 = profilePhoto.startsWith('data:image/');
+        const isUrl = profilePhoto.startsWith('http://') || profilePhoto.startsWith('https://');
+
+        if (!isBase64 && !isUrl) {
+            return {
+                success: false,
+                statusCode: 400,
+                error: 'Formato de imagen no válido'
+            };
+        }
+
+        // Verificar que el usuario existe
+        const existingUser = query(
+            'SELECT id FROM users WHERE id = ? AND is_active = 1',
+            [userId]
+        );
+
+        if (existingUser.length === 0) {
+            return {
+                success: false,
+                statusCode: 404,
+                error: 'Usuario no encontrado'
+            };
+        }
+
+        // Actualizar foto de perfil
+        query(`
+            UPDATE users 
+            SET 
+                profile_photo = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        `, [profilePhoto, userId]);
+
+        return {
+            success: true,
+            statusCode: 200,
+            data: {
+                message: 'Foto de perfil actualizada exitosamente',
+                profilePhoto
+            }
+        };
+
+    } catch (error) {
+        logger.exception(error, { action: 'updateProfilePhoto' });
+        return {
+            success: false,
+            statusCode: 500,
+            error: 'Error al actualizar foto de perfil'
+        };
+    }
+}
+
+/**
+ * Eliminar foto de perfil
+ */
+function deleteProfilePhoto(req, body) {
+    try {
+        const userId = req.user.id;
+
+        // Verificar que el usuario existe
+        const existingUser = query(
+            'SELECT id FROM users WHERE id = ? AND is_active = 1',
+            [userId]
+        );
+
+        if (existingUser.length === 0) {
+            return {
+                success: false,
+                statusCode: 404,
+                error: 'Usuario no encontrado'
+            };
+        }
+
+        // Eliminar foto de perfil (establecer en NULL)
+        query(`
+            UPDATE users 
+            SET 
+                profile_photo = NULL,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        `, [userId]);
+
+        return {
+            success: true,
+            statusCode: 200,
+            data: {
+                message: 'Foto de perfil eliminada exitosamente'
+            }
+        };
+
+    } catch (error) {
+        logger.exception(error, { action: 'deleteProfilePhoto' });
+        return {
+            success: false,
+            statusCode: 500,
+            error: 'Error al eliminar foto de perfil'
+        };
+    }
+}
+
+module.exports = {
+    getProfile,
+    updateProfile,
+    updatePassword,
+    updateProfilePhoto,
+    deleteProfilePhoto
+};
