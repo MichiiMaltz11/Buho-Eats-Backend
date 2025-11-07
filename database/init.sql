@@ -275,39 +275,24 @@ VALUES
     
     (4, 'Sushi Master', 'Sushi y sashimi preparado por chef japonés con 20 años de experiencia. Pescado fresco diariamente.', 'Av. Insurgentes 2341, Col. Del Valle', '555-0104', 'reservas@sushimaster.com', 'Japonesa', '$$$', 'Lun-Sáb: 13:00-22:30', 2, '/assets/img/restaurants/default/sushi-1.jpg'),
     
-    (5, 'Taquería El Güero', 'Tacos al pastor, carnitas y más. Recetas familiares transmitidas por generaciones.', 'Calle Morelos 123, Col. Centro', '555-0105', 'elguero@tacos.com', 'Mexicana', '$', 'Lun-Dom: 10:00-23:00', 2, '/assets/img/restaurants/default/mexican-1.jpg'),
-    
-    (6, 'Steakhouse Premium', 'Cortes premium de carne madurada. Bar de vinos con más de 200 etiquetas internacionales.', 'Av. Reforma 4567, Col. Polanco', '555-0106', 'info@steakpremium.com', 'Americana', '$$$$', 'Lun-Sáb: 14:00-23:00', 2, '/assets/img/restaurants/default/steak-1.jpg'),
-    
-    (7, 'Golden Dragon', 'Auténtica comida cantonesa. Dim sum, pato pekinés y especialidades del chef.', 'Calle Madero 789, Col. Centro', '555-0107', 'reservaciones@goldendragon.com', 'China', '$$', 'Lun-Dom: 11:00-22:00', 2, '/assets/img/restaurants/default/chinese-1.jpg'),
-    
-    (8, 'Mar y Tierra', 'Especialistas en mariscos frescos. Ceviches, aguachiles y pescados a la talla.', 'Av. Costera 321, Zona Hotelera', '555-0108', 'contacto@marytierra.com', 'Mariscos', '$$$', 'Mar-Dom: 12:00-21:00', 2, '/assets/img/restaurants/default/seafood-1.jpg'),
-    
-    (9, 'Café Bonjour', 'Cafetería francesa con repostería artesanal. Croissants, macarons y café de especialidad.', 'Calle París 456, Col. Condesa', '555-0109', 'bonjour@cafe.com', 'Francesa', '$$', 'Lun-Dom: 07:00-20:00', 2, '/assets/img/restaurants/default/coffee-1.jpg'),
-    
-    (10, 'Sweet Dreams', 'Postres y repostería gourmet. Pasteles personalizados, tartas y chocolates artesanales.', 'Av. Amsterdam 234, Col. Condesa', '555-0110', 'info@sweetdreams.com', 'Postres', '$$', 'Lun-Dom: 10:00-21:00', 2, '/assets/img/restaurants/default/dessert-1.jpg');
+    (5, 'Taquería El Güero', 'Tacos al pastor, carnitas y más. Recetas familiares transmitidas por generaciones.', 'Calle Morelos 123, Col. Centro', '555-0105', 'elguero@tacos.com', 'Mexicana', '$', 'Lun-Dom: 10:00-23:00', 2, '/assets/img/restaurants/default/mexican-1.jpg');
 
--- Insertar menú completo para "La Bella Notte" (Restaurante ID 1)
+-- Insertar menú para "La Bella Notte" (Restaurante ID 1)
+-- 2 platos por categoría
 INSERT OR IGNORE INTO menu_items (restaurant_id, name, description, price, category, image_url)
 VALUES 
     -- ENTRADAS
     (1, 'Bruschetta al Pomodoro', 'Pan tostado con tomates frescos, albahaca, ajo y aceite de oliva extra virgen', 89.00, 'Entrada', '/assets/img/menu/bruschetta.jpg'),
     (1, 'Insalata Caprese', 'Tomate, mozzarella di bufala, albahaca fresca y reducción de balsámico', 125.00, 'Entrada', '/assets/img/menu/caprese.jpg'),
-    (1, 'Carpaccio di Manzo', 'Finas láminas de res con rúcula, parmesano y aceite de trufa', 165.00, 'Entrada', '/assets/img/menu/carpaccio.jpg'),
     
     -- PLATOS PRINCIPALES
     (1, 'Spaghetti alla Carbonara', 'Pasta con pancetta, huevo, pecorino romano y pimienta negra', 185.00, 'Plato Principal', '/assets/img/menu/pasta-carbonara.jpg'),
     (1, 'Lasagna alla Bolognese', 'Lasagna casera con ragú de carne, bechamel y parmesano', 195.00, 'Plato Principal', '/assets/img/menu/lasagna.jpg'),
-    (1, 'Ravioli di Ricotta e Spinaci', 'Ravioles rellenos de ricotta y espinaca con salsa de mantequilla y salvia', 205.00, 'Plato Principal', '/assets/img/menu/ravioli.jpg'),
-    (1, 'Risotto ai Funghi Porcini', 'Risotto cremoso con hongos porcini, parmesano y trufa', 225.00, 'Plato Principal', '/assets/img/menu/risotto.jpg'),
-    (1, 'Ossobuco alla Milanese', 'Chamorro de ternera braseado con gremolata, servido con risotto', 345.00, 'Plato Principal', '/assets/img/menu/ossobuco.jpg'),
     
     -- POSTRES
     (1, 'Tiramisù Classico', 'El auténtico postre italiano con café, mascarpone y cacao', 95.00, 'Postre', '/assets/img/menu/tiramisu.jpg'),
     (1, 'Panna Cotta ai Frutti di Bosco', 'Crema de vainilla con coulis de frutos rojos', 85.00, 'Postre', '/assets/img/menu/panna-cotta.jpg'),
-    (1, 'Gelato Artigianale', 'Helado artesanal (vainilla, chocolate, pistacho o fresa)', 75.00, 'Postre', '/assets/img/menu/gelato.jpg'),
     
     -- BEBIDAS
     (1, 'Espresso Italiano', 'Café espresso preparado con granos importados de Italia', 45.00, 'Bebida', '/assets/img/menu/espresso.jpg'),
-    (1, 'Vino Tinto de la Casa', 'Chianti Classico DOCG (copa)', 95.00, 'Bebida', '/assets/img/menu/wine.jpg'),
-    (1, 'Limoncello', 'Licor tradicional de limón servido helado', 75.00, 'Bebida', '/assets/img/menu/limoncello.jpg');
+    (1, 'Vino Tinto de la Casa', 'Chianti Classico DOCG (copa)', 95.00, 'Bebida', '/assets/img/menu/wine.jpg');
