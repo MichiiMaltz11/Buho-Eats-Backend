@@ -166,11 +166,7 @@ const protectedRoutes = {
  * Rutas de admin (requieren rol admin)
  */
 const adminRoutes = {
-    'POST /api/admin/users/:id/roles': {
-        handler: userController.assignOwnerRole,
-        requireAuth: true,
-        middleware: authenticateToken
-    }
+    // Agregar aquí rutas de admin cuando sea necesario
 };
 
 /**
