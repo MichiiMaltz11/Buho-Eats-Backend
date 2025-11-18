@@ -256,13 +256,6 @@ function createRestaurant(req, body) {
             name 
         });
 
-        // Promover usuario a owner si aún no tiene el rol
-        try {
-            query('UPDATE users SET role = ? WHERE id = ?', ['owner', req.user.id]);
-        } catch (e) {
-            logger.warn('No se pudo actualizar el rol del usuario a owner', { userId: req.user.id, error: e.message });
-        }
-
         return {
             success: true,
             statusCode: 201,

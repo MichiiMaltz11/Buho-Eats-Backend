@@ -363,48 +363,10 @@ function deleteProfilePhoto(req, body) {
     }
 }
 
-/**
- * Asignar rol 'owner' a un usuario (solo admin)
- * POST /api/admin/users/:id/roles  body: { action: 'assign'|'revoke' }
- */
-/**
- * Asignar/revocar rol 'owner' a un usuario (solo admin)
- * POST /api/admin/users/:id/roles  body: { action: 'assign'|'revoke' }
- */
-async function assignOwnerRole(req, body) {
-    try {
-        // Seguridad: sólo admin puede asignar/revocar roles
-        if (!req.user || req.user.role !== 'admin') {
-            return { success: false, statusCode: 403, error: 'Acceso denegado: se requiere rol admin' };
-        }
-
-        const urlParts = req.url.split('/');
-        const userId = urlParts[urlParts.length - 1];
-        const action = body && body.action ? body.action : 'assign';
-
-        if (action === 'assign') {
-            query('UPDATE users SET role = ? WHERE id = ?', ['owner', userId]);
-            return { success: true, message: 'Rol owner asignado' };
-        } else if (action === 'revoke') {
-            // set back to 'user' (o ajusta según tu política)
-            query('UPDATE users SET role = ? WHERE id = ?', ['user', userId]);
-            return { success: true, message: 'Rol owner revocado' };
-        } else {
-            return { success: false, statusCode: 400, error: 'Acción inválida' };
-        }
-    } catch (error) {
-        logger.error('Error assignOwnerRole', { error: error.message });
-        return { success: false, statusCode: 500, error: 'Error al asignar/revocar rol' };
-    }
-}
-
-
-
 module.exports = {
     getProfile,
     updateProfile,
     updatePassword,
     updateProfilePhoto,
-    deleteProfilePhoto,
-    assignOwnerRole,
+    deleteProfilePhoto
 };
