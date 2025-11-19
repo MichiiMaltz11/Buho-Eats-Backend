@@ -63,6 +63,11 @@ function approveReport(req, reportId) {
         const report = reports[0];
         if (report.status !== 'pendiente') return { success: false, statusCode: 400, error: 'Reporte ya fue procesado' };
 
+        // Verificar que la review exista
+        const revRows = query('SELECT id, is_active FROM reviews WHERE id = ?', [report.review_id]);
+        if (revRows.length === 0) return { success: false, statusCode: 404, error: 'Reseña asociada no encontrada' };
+
+        // No hacer nada más que marcar como aprobado (la política puede ser que el admin sólo marque)
         query(`UPDATE review_reports SET status = 'aprobado', resolved_at = CURRENT_TIMESTAMP, resolved_by = ? WHERE id = ?`, [req.user.id, reportId]);
 
         return { success: true, statusCode: 200, data: { message: 'Reporte aprobado' } };
@@ -85,13 +90,23 @@ function rejectReview(req, reportId) {
         const report = reports[0];
         if (report.status !== 'pendiente') return { success: false, statusCode: 400, error: 'Reporte ya fue procesado' };
 
+        // Verificar que la review exista y su estado
+        const revRows = query('SELECT id, user_id, restaurant_id, is_active FROM reviews WHERE id = ?', [report.review_id]);
+        if (revRows.length === 0) return { success: false, statusCode: 404, error: 'Reseña asociada no encontrada' };
+        const review = revRows[0];
+
+        if (review.is_active === 0) {
+            // Si la reseña ya estaba inactiva, solamente marcar el reporte
+            query(`UPDATE review_reports SET status = 'rechazado', resolved_at = CURRENT_TIMESTAMP, resolved_by = ? WHERE id = ?`, [req.user.id, reportId]);
+            return { success: true, statusCode: 200, data: { message: 'Reporte marcado como rechazado (reseña ya inactiva)' } };
+        }
+
         // Soft delete review and mark report as rejected
         transaction(() => {
             query('UPDATE reviews SET is_active = 0 WHERE id = ?', [report.review_id]);
             query(`UPDATE review_reports SET status = 'rechazado', resolved_at = CURRENT_TIMESTAMP, resolved_by = ? WHERE id = ?`, [req.user.id, reportId]);
             // Recompute restaurant rating
-            const rev = query('SELECT restaurant_id FROM reviews WHERE id = ?', [report.review_id]);
-            const restaurantId = rev[0]?.restaurant_id;
+            const restaurantId = review.restaurant_id;
             if (restaurantId) {
                 const stats = query('SELECT COUNT(*) as total, COALESCE(AVG(rating),0) as avg FROM reviews WHERE restaurant_id = ? AND is_active = 1', [restaurantId]);
                 query('UPDATE restaurants SET total_reviews = ?, average_rating = ? WHERE id = ?', [stats[0].total, stats[0].avg, restaurantId]);
@@ -112,7 +127,8 @@ function rejectReview(req, reportId) {
  */
 function rejectWithStrike(req, reportId, body) {
     try {
-        const { userId } = body || {};
+        // Permitir pasar userId en body, pero si no está, derivarlo desde la review
+        const { userId: bodyUserId } = body || {};
 
         const reports = query('SELECT * FROM review_reports WHERE id = ?', [reportId]);
         if (reports.length === 0) return { success: false, statusCode: 404, error: 'Reporte no encontrado' };
@@ -120,15 +136,36 @@ function rejectWithStrike(req, reportId, body) {
         const report = reports[0];
         if (report.status !== 'pendiente') return { success: false, statusCode: 400, error: 'Reporte ya fue procesado' };
 
-        if (!userId) return { success: false, statusCode: 400, error: 'userId es requerido en el body' };
+        // Verificar que la review exista
+        const revRows = query('SELECT id, user_id, restaurant_id, is_active FROM reviews WHERE id = ?', [report.review_id]);
+        if (revRows.length === 0) return { success: false, statusCode: 404, error: 'Reseña asociada no encontrada' };
+        const review = revRows[0];
 
-        // No aplicar strike a admins o owners
-        const targetUsers = query('SELECT id, role, strikes FROM users WHERE id = ?', [userId]);
+        const targetId = bodyUserId || review.user_id;
+        if (!targetId) return { success: false, statusCode: 400, error: 'No se pudo determinar usuario objetivo' };
+
+        // Obtener usuario objetivo
+        const targetUsers = query('SELECT id, role, strikes FROM users WHERE id = ?', [targetId]);
         if (targetUsers.length === 0) return { success: false, statusCode: 404, error: 'Usuario no encontrado' };
 
         const target = targetUsers[0];
-        if (target.role === 'admin' || target.role === 'owner') {
-            return { success: false, statusCode: 400, error: 'No se puede dar strike a admin/owner' };
+
+        // No aplicar strike a admins
+        if (target.role === 'admin') {
+            return { success: false, statusCode: 400, error: 'No se puede dar strike a admin' };
+        }
+
+        // No aplicar strike al owner del restaurante si el review.user_id es el owner of the restaurant
+        const restaurant = query('SELECT owner_id FROM restaurants WHERE id = ?', [review.restaurant_id]);
+        const ownerId = restaurant[0]?.owner_id;
+        if (ownerId && target.id === ownerId) {
+            return { success: false, statusCode: 400, error: 'No se puede dar strike al propietario del restaurante' };
+        }
+
+        // Si la reseña ya está inactiva, solo marcar reporte
+        if (review.is_active === 0) {
+            query(`UPDATE review_reports SET status = 'rechazado', resolved_at = CURRENT_TIMESTAMP, resolved_by = ? WHERE id = ?`, [req.user.id, reportId]);
+            return { success: true, statusCode: 200, data: { message: 'Reporte marcado como rechazado (reseña ya inactiva)' } };
         }
 
         // Transaction: delete review (soft), increment strikes, maybe ban, mark report
@@ -137,25 +174,24 @@ function rejectWithStrike(req, reportId, body) {
 
             // Incrementar strikes
             const newStrikes = (target.strikes || 0) + 1;
-            query('UPDATE users SET strikes = ? WHERE id = ?', [newStrikes, userId]);
+            query('UPDATE users SET strikes = ? WHERE id = ?', [newStrikes, target.id]);
 
             // Si alcanza >=3, banear usuario (is_active = 0)
             if (newStrikes >= 3) {
-                query('UPDATE users SET is_active = 0 WHERE id = ?', [userId]);
+                query('UPDATE users SET is_active = 0 WHERE id = ?', [target.id]);
             }
 
             query(`UPDATE review_reports SET status = 'rechazado', resolved_at = CURRENT_TIMESTAMP, resolved_by = ? WHERE id = ?`, [req.user.id, reportId]);
 
             // Recompute restaurant rating
-            const rev = query('SELECT restaurant_id FROM reviews WHERE id = ?', [report.review_id]);
-            const restaurantId = rev[0]?.restaurant_id;
+            const restaurantId = review.restaurant_id;
             if (restaurantId) {
                 const stats = query('SELECT COUNT(*) as total, COALESCE(AVG(rating),0) as avg FROM reviews WHERE restaurant_id = ? AND is_active = 1', [restaurantId]);
                 query('UPDATE restaurants SET total_reviews = ?, average_rating = ? WHERE id = ?', [stats[0].total, stats[0].avg, restaurantId]);
             }
         });
 
-        return { success: true, statusCode: 200, data: { message: 'Reseña eliminada, strike aplicado' } };
+        return { success: true, statusCode: 200, data: { message: 'Reseña eliminada, strike aplicado', strikes: (target.strikes || 0) + 1 } };
 
     } catch (error) {
         logger.exception(error, { action: 'rejectWithStrike', reportId });
