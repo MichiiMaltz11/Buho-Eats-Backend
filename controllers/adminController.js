@@ -222,7 +222,13 @@ function rejectWithStrike(req, reportId, body) {
             transaction(() => {
                 query('UPDATE users SET is_active = 0, strikes = 3 WHERE id = ?', [targetId]);
                 query('UPDATE reviews SET is_active = 0 WHERE user_id = ?', [targetId]);
-                // Marcar en audit (si existe) se podría insertar aquí
+                // Insertar registro de auditoría
+                try {
+                    query(`INSERT INTO admin_audit (admin_id, action, target_user_id, reason) VALUES (?, 'ban', ?, ?)` , [req.user?.id || null, targetId, body?.reason || null]);
+                } catch (e) {
+                    // Si la tabla no existe, ignorar y continuar (se creará con el script de migración)
+                    logger.warn('admin_audit insert fallo (tabla puede no existir)', { error: e.message });
+                }
             });
 
             logger.info('Usuario baneado manualmente', { adminId: req.user?.id, targetId });
@@ -260,6 +266,12 @@ function rejectWithStrike(req, reportId, body) {
                     query('UPDATE users SET is_active = 1 WHERE id = ?', [targetId]);
                 }
                 // Opcional: reactivar reseñas requiere política; por ahora no se reactiva automáticamente
+                try {
+                    const reason = resetStrikes ? 'unban_reset_strikes' : 'unban';
+                    query(`INSERT INTO admin_audit (admin_id, action, target_user_id, reason) VALUES (?, 'unban', ?, ?)` , [req.user?.id || null, targetId, reason]);
+                } catch (e) {
+                    logger.warn('admin_audit insert fallo (tabla puede no existir)', { error: e.message });
+                }
             });
 
             logger.info('Usuario desbaneado manualmente', { adminId: req.user?.id, targetId, resetStrikes });
@@ -275,6 +287,8 @@ module.exports = {
     getReports,
     approveReport,
     rejectReview,
-    rejectWithStrike
+    rejectWithStrike,
+    banUser,
+    unbanUser
 };
 

@@ -173,6 +173,20 @@ const adminRoutes = {
     }
 };
 
+// Añadir endpoints de baneo/desbaneo manual
+Object.assign(adminRoutes, {
+    'POST /api/admin/users/:id/ban': {
+        handler: require('../controllers/adminController').banUser,
+        requireAuth: true,
+        middleware: requireRole('admin')
+    },
+    'POST /api/admin/users/:id/unban': {
+        handler: require('../controllers/adminController').unbanUser,
+        requireAuth: true,
+        middleware: requireRole('admin')
+    }
+});
+
 // Rutas de administración para reportes de reseñas
 const adminReportRoutes = {
     'GET /api/admin/reports': {
