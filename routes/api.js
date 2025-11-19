@@ -173,6 +173,32 @@ const adminRoutes = {
     }
 };
 
+// Rutas de administración para reportes de reseñas
+const adminReportRoutes = {
+    'GET /api/admin/reports': {
+        handler: require('../controllers/adminController').getReports,
+        requireAuth: true,
+        middleware: requireRole('admin')
+    },
+    'POST /api/admin/reports/:id/approve': {
+        handler: require('../controllers/adminController').approveReport,
+        requireAuth: true,
+        middleware: requireRole('admin')
+    },
+    'POST /api/admin/reports/:id/reject-review': {
+        handler: require('../controllers/adminController').rejectReview,
+        requireAuth: true,
+        middleware: requireRole('admin')
+    },
+    'POST /api/admin/reports/:id/reject-with-strike': {
+        handler: require('../controllers/adminController').rejectWithStrike,
+        requireAuth: true,
+        middleware: requireRole('admin')
+    }
+};
+
+Object.assign(adminRoutes, adminReportRoutes);
+
 /**
  * Combinar todas las rutas
  */
