@@ -101,11 +101,11 @@ function rejectReview(req, reportId) {
             return { success: true, statusCode: 200, data: { message: 'Reporte marcado como rechazado (reseña ya inactiva)' } };
         }
 
-        // Soft delete review and mark report as rejected
+        // Soft delete Hace review y marca reporte como rechazado
         transaction(() => {
             query('UPDATE reviews SET is_active = 0 WHERE id = ?', [report.review_id]);
             query(`UPDATE review_reports SET status = 'rechazado', resolved_at = CURRENT_TIMESTAMP, resolved_by = ? WHERE id = ?`, [req.user.id, reportId]);
-            // Recompute restaurant rating
+            // Recalcula el restaurant rating
             const restaurantId = review.restaurant_id;
             if (restaurantId) {
                 const stats = query('SELECT COUNT(*) as total, COALESCE(AVG(rating),0) as avg FROM reviews WHERE restaurant_id = ? AND is_active = 1', [restaurantId]);
@@ -168,7 +168,7 @@ function rejectWithStrike(req, reportId, body) {
             return { success: true, statusCode: 200, data: { message: 'Reporte marcado como rechazado (reseña ya inactiva)' } };
         }
 
-        // Transaction: delete review (soft), increment strikes, maybe ban, mark report
+        // Transaction: borra review (soft), incrementa strikes, quiza ban, marca reporte
         transaction(() => {
             query('UPDATE reviews SET is_active = 0 WHERE id = ?', [report.review_id]);
 
@@ -183,7 +183,7 @@ function rejectWithStrike(req, reportId, body) {
 
             query(`UPDATE review_reports SET status = 'rechazado', resolved_at = CURRENT_TIMESTAMP, resolved_by = ? WHERE id = ?`, [req.user.id, reportId]);
 
-            // Recompute restaurant rating
+            // Recalcula el restaurant rating
             const restaurantId = review.restaurant_id;
             if (restaurantId) {
                 const stats = query('SELECT COUNT(*) as total, COALESCE(AVG(rating),0) as avg FROM reviews WHERE restaurant_id = ? AND is_active = 1', [restaurantId]);
@@ -199,9 +199,82 @@ function rejectWithStrike(req, reportId, body) {
     }
 }
 
+    /**
+     * POST /api/admin/users/:userId/ban
+     * Body: { reason }
+     * Acción: desactiva usuario y opcionalmente elimina sus reseñas (soft delete). No permite banear admins.
+     */
+    function banUser(req, userId, body) {
+        try {
+            const targetId = parseInt(userId, 10);
+            if (!targetId) return { success: false, statusCode: 400, error: 'userId inválido' };
+
+            // No permitir que un admin se auto-banee
+            if (req.user && req.user.id === targetId) return { success: false, statusCode: 400, error: 'No puedes banear tu propia cuenta' };
+
+            const users = query('SELECT id, role, is_active FROM users WHERE id = ?', [targetId]);
+            if (users.length === 0) return { success: false, statusCode: 404, error: 'Usuario no encontrado' };
+
+            const target = users[0];
+            if (target.role === 'admin') return { success: false, statusCode: 400, error: 'No se puede banear a otro admin' };
+
+            // Realizar baneo en transacción: desactivar usuario, establecer strikes a 3, soft-delete reseñas
+            transaction(() => {
+                query('UPDATE users SET is_active = 0, strikes = 3 WHERE id = ?', [targetId]);
+                query('UPDATE reviews SET is_active = 0 WHERE user_id = ?', [targetId]);
+                // Marcar en audit (si existe) se podría insertar aquí
+            });
+
+            logger.info('Usuario baneado manualmente', { adminId: req.user?.id, targetId });
+
+            return { success: true, statusCode: 200, data: { message: 'Usuario baneado correctamente', userId: targetId } };
+        } catch (error) {
+            logger.exception(error, { action: 'banUser', userId });
+            return { success: false, statusCode: 500, error: 'Error al banear usuario' };
+        }
+    }
+
+
+    /**
+     * POST /api/admin/users/:userId/unban
+     * Body: { resetStrikes: boolean }
+     * Acción: reactiva usuario y opcionalmente resetea strikes
+     */
+    function unbanUser(req, userId, body) {
+        try {
+            const targetId = parseInt(userId, 10);
+            if (!targetId) return { success: false, statusCode: 400, error: 'userId inválido' };
+
+            const users = query('SELECT id, role, is_active, strikes FROM users WHERE id = ?', [targetId]);
+            if (users.length === 0) return { success: false, statusCode: 404, error: 'Usuario no encontrado' };
+
+            const target = users[0];
+            if (target.role === 'admin') return { success: false, statusCode: 400, error: 'Este usuario es admin' };
+
+            const resetStrikes = body && body.resetStrikes === true;
+
+            transaction(() => {
+                if (resetStrikes) {
+                    query('UPDATE users SET is_active = 1, strikes = 0 WHERE id = ?', [targetId]);
+                } else {
+                    query('UPDATE users SET is_active = 1 WHERE id = ?', [targetId]);
+                }
+                // Opcional: reactivar reseñas requiere política; por ahora no se reactiva automáticamente
+            });
+
+            logger.info('Usuario desbaneado manualmente', { adminId: req.user?.id, targetId, resetStrikes });
+
+            return { success: true, statusCode: 200, data: { message: 'Usuario reactivado correctamente', userId: targetId } };
+        } catch (error) {
+            logger.exception(error, { action: 'unbanUser', userId });
+            return { success: false, statusCode: 500, error: 'Error al reactivar usuario' };
+        }
+    }
+
 module.exports = {
     getReports,
     approveReport,
     rejectReview,
     rejectWithStrike
 };
+
