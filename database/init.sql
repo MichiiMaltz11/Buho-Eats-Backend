@@ -254,6 +254,42 @@ BEGIN
     WHERE id = OLD.restaurant_id;
 END;
 
+
+-- ========================================
+-- Tabla de reviews para SuperAdmin
+-- ========================================
+
+CREATE TABLE IF NOT EXISTS review_reports (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    review_id INTEGER NOT NULL,
+    reporter_id INTEGER NOT NULL,
+    reason TEXT NOT NULL CHECK(reason IN ('spam', 'ofensivo', 'falso', 'otro')),
+    description TEXT,
+    status TEXT NOT NULL DEFAULT 'pendiente' CHECK(status IN ('pendiente', 'aprobado', 'rechazado')),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    resolved_at DATETIME,
+    resolved_by INTEGER,
+    FOREIGN KEY (review_id) REFERENCES reviews(id) ON DELETE CASCADE,
+    FOREIGN KEY (reporter_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (resolved_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_reports_review ON review_reports(review_id);
+CREATE INDEX IF NOT EXISTS idx_reports_status ON review_reports(status);
+
+-- ========================================
+-- SuperAdmin: Añadir columna 'strikes' y crear índices de administración
+-- ========================================
+
+ALTER TABLE users ADD COLUMN strikes INTEGER DEFAULT 0 CHECK(strikes >= 0 AND strikes <= 3);
+
+-- Índices para optimizar consultas de administración y filtrado
+CREATE INDEX IF NOT EXISTS idx_users_strikes ON users(strikes);
+CREATE INDEX IF NOT EXISTS idx_users_is_active ON users(is_active);
+CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+
+
+
 -- ========================================
 -- DATOS DE DEMOSTRACIÓN
 -- ========================================
