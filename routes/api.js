@@ -213,6 +213,33 @@ const adminReportRoutes = {
 
 Object.assign(adminRoutes, adminReportRoutes);
 
+// Ruta para obtener lista de usuarios (admin)
+Object.assign(adminRoutes, {
+    'GET /api/admin/users': {
+        handler: require('../controllers/adminController').getUsers,
+        requireAuth: true,
+        middleware: requireRole('admin')
+    }
+});
+
+// Ruta para estadísticas generales (admin)
+Object.assign(adminRoutes, {
+    'GET /api/admin/stats': {
+        handler: require('../controllers/adminController').getStats,
+        requireAuth: true,
+        middleware: requireRole('admin')
+    }
+});
+
+// Ruta para listar restaurantes (admin)
+Object.assign(adminRoutes, {
+    'GET /api/admin/restaurants': {
+        handler: require('../controllers/adminController').getRestaurants,
+        requireAuth: true,
+        middleware: requireRole('admin')
+    }
+});
+
 /**
  * Combinar todas las rutas
  */
