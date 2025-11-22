@@ -169,7 +169,7 @@ const adminRoutes = {
     'POST /api/admin/users/:id/roles': {
         handler: userController.assignOwnerRole,
         requireAuth: true,
-        middleware: authenticateToken
+        middleware: requireRole('admin')
     }
 };
 
