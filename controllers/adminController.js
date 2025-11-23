@@ -199,7 +199,7 @@ function rejectWithStrike(req, reportId, body) {
     }
 }
 
- /**
+/**
  * GET /api/admin/users?page=1&limit=20&search=&filter=
  * filter: all|banned|with-strikes
  */
@@ -250,6 +250,96 @@ function getUsers(req) {
     } catch (error) {
         logger.exception(error, { action: 'getUsers' });
         return { success: false, statusCode: 500, error: 'Error al obtener usuarios' };
+    }
+}
+
+/**
+ * GET /api/admin/stats
+ * Devuelve estadísticas generales del sistema
+ */
+function getStats(req) {
+    try {
+        const totalUsersRes = query('SELECT COUNT(*) as total FROM users');
+        const totalRestaurantsRes = query('SELECT COUNT(*) as total FROM restaurants');
+        const totalReviewsRes = query("SELECT COUNT(*) as total FROM reviews WHERE is_active = 1");
+        const pendingReportsRes = query("SELECT COUNT(*) as total FROM review_reports WHERE status = 'pendiente'");
+        const bannedUsersRes = query('SELECT COUNT(*) as total FROM users WHERE is_active = 0');
+
+        const data = {
+            totalUsers: totalUsersRes[0]?.total || 0,
+            totalRestaurants: totalRestaurantsRes[0]?.total || 0,
+            totalReviews: totalReviewsRes[0]?.total || 0,
+            pendingReports: pendingReportsRes[0]?.total || 0,
+            bannedUsers: bannedUsersRes[0]?.total || 0
+        };
+
+        return { success: true, statusCode: 200, data };
+
+    } catch (error) {
+        logger.exception(error, { action: 'getStats' });
+        return { success: false, statusCode: 500, error: 'Error al obtener estadísticas' };
+    }
+}
+
+/**
+ * GET /api/admin/restaurants?page=1&limit=20&search=&ownerId=
+ * Devuelve lista de restaurantes con owner y estadísticas básicas
+ */
+function getRestaurants(req) {
+    try {
+        const url = new URL(req.url, `http://${req.headers.host}`);
+        const page = parseInt(url.searchParams.get('page')) || 1;
+        const limit = parseInt(url.searchParams.get('limit')) || 20;
+        const offset = (page - 1) * limit;
+        const search = (url.searchParams.get('search') || '').trim();
+        const ownerId = url.searchParams.get('ownerId');
+
+        const where = [];
+        const params = [];
+
+        if (ownerId) {
+            where.push('rest.owner_id = ?');
+            params.push(ownerId);
+        }
+
+        if (search) {
+            where.push('(rest.name LIKE ? OR rest.cuisine_type LIKE ? OR rest.address LIKE ?)');
+            params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+        }
+
+        const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+
+        // Seleccionamos campos del restaurante, owner y las estadísticas ya guardadas
+        const rows = query(
+            `SELECT rest.id, rest.name, rest.description, rest.address, rest.cuisine_type, rest.price_range,
+                    rest.image_url, rest.rating, rest.average_rating, rest.total_reviews, rest.is_active,
+                    rest.created_at, rest.updated_at,
+                    u.id as owner_id, u.first_name as owner_first, u.last_name as owner_last, u.email as owner_email
+             FROM restaurants rest
+             LEFT JOIN users u ON rest.owner_id = u.id
+             ${whereSql}
+             ORDER BY rest.created_at DESC
+             LIMIT ? OFFSET ?`,
+            [...params, limit, offset]
+        );
+
+        const totalRes = query(`SELECT COUNT(*) as total FROM restaurants rest ${whereSql}`, params);
+        const total = totalRes[0]?.total || 0;
+
+        return {
+            success: true,
+            statusCode: 200,
+            data: {
+                data: rows,
+                total,
+                page,
+                pages: Math.ceil(total / limit)
+            }
+        };
+
+    } catch (error) {
+        logger.exception(error, { action: 'getRestaurants' });
+        return { success: false, statusCode: 500, error: 'Error al obtener restaurantes' };
     }
 }
 
@@ -313,111 +403,22 @@ function getUsers(req) {
 
             const resetStrikes = body && body.resetStrikes === true;
 
+            // Actualizar estado del usuario en una transacción
             transaction(() => {
                 if (resetStrikes) {
                     query('UPDATE users SET is_active = 1, strikes = 0 WHERE id = ?', [targetId]);
                 } else {
                     query('UPDATE users SET is_active = 1 WHERE id = ?', [targetId]);
                 }
-
-                  /**
-                 * GET /api/admin/stats
-                 * Devuelve estadísticas generales del sistema
-                 */
-                function getStats(req) {
-                    try {
-                        const totalUsersRes = query('SELECT COUNT(*) as total FROM users');
-                        const totalRestaurantsRes = query('SELECT COUNT(*) as total FROM restaurants');
-                        const totalReviewsRes = query("SELECT COUNT(*) as total FROM reviews WHERE is_active = 1");
-                        const pendingReportsRes = query("SELECT COUNT(*) as total FROM review_reports WHERE status = 'pendiente'");
-                        const bannedUsersRes = query('SELECT COUNT(*) as total FROM users WHERE is_active = 0');
-
-                        const data = {
-                            totalUsers: totalUsersRes[0]?.total || 0,
-                            totalRestaurants: totalRestaurantsRes[0]?.total || 0,
-                            totalReviews: totalReviewsRes[0]?.total || 0,
-                            pendingReports: pendingReportsRes[0]?.total || 0,
-                            bannedUsers: bannedUsersRes[0]?.total || 0
-                        };
-
-                        return { success: true, statusCode: 200, data };
-
-                    } catch (error) {
-                        logger.exception(error, { action: 'getStats' });
-                        return { success: false, statusCode: 500, error: 'Error al obtener estadísticas' };
-                    }
-
-                    
-                    /**
-                     * GET /api/admin/restaurants?page=1&limit=20&search=&ownerId=
-                     * Devuelve lista de restaurantes con owner y estadísticas básicas
-                     */
-                    function getRestaurants(req) {
-                        try {
-                            const url = new URL(req.url, `http://${req.headers.host}`);
-                            const page = parseInt(url.searchParams.get('page')) || 1;
-                            const limit = parseInt(url.searchParams.get('limit')) || 20;
-                            const offset = (page - 1) * limit;
-                            const search = (url.searchParams.get('search') || '').trim();
-                            const ownerId = url.searchParams.get('ownerId');
-
-                            const where = [];
-                            const params = [];
-
-                            if (ownerId) {
-                                where.push('rest.owner_id = ?');
-                                params.push(ownerId);
-                            }
-
-                            if (search) {
-                                where.push('(rest.name LIKE ? OR rest.cuisine_type LIKE ? OR rest.address LIKE ?)');
-                                params.push(`%${search}%`, `%${search}%`, `%${search}%`);
-                            }
-
-                            const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
-
-                            // Seleccionamos campos del restaurante, owner y las estadísticas ya guardadas
-                            const rows = query(
-                                `SELECT rest.id, rest.name, rest.description, rest.address, rest.cuisine_type, rest.price_range,
-                                        rest.image_url, rest.rating, rest.average_rating, rest.total_reviews, rest.is_active,
-                                        rest.created_at, rest.updated_at,
-                                        u.id as owner_id, u.first_name as owner_first, u.last_name as owner_last, u.email as owner_email
-                                 FROM restaurants rest
-                                 LEFT JOIN users u ON rest.owner_id = u.id
-                                 ${whereSql}
-                                 ORDER BY rest.created_at DESC
-                                 LIMIT ? OFFSET ?`,
-                                [...params, limit, offset]
-                            );
-
-                            const totalRes = query(`SELECT COUNT(*) as total FROM restaurants rest ${whereSql}`, params);
-                            const total = totalRes[0]?.total || 0;
-
-                            return {
-                                success: true,
-                                statusCode: 200,
-                                data: {
-                                    data: rows,
-                                    total,
-                                    page,
-                                    pages: Math.ceil(total / limit)
-                                }
-                            };
-
-                        } catch (error) {
-                            logger.exception(error, { action: 'getRestaurants' });
-                            return { success: false, statusCode: 500, error: 'Error al obtener restaurantes' };
-                        }
-                    }
-                }
-                // Opcional: reactivar reseñas requiere política; por ahora no se reactiva automáticamente
-                try {
-                    const reason = resetStrikes ? 'unban_reset_strikes' : 'unban';
-                    query(`INSERT INTO admin_audit (admin_id, action, target_user_id, reason) VALUES (?, 'unban', ?, ?)` , [req.user?.id || null, targetId, reason]);
-                } catch (e) {
-                    logger.warn('admin_audit insert fallo (tabla puede no existir)', { error: e.message });
-                }
             });
+
+            // Opcional: reactivar reseñas requiere política; por ahora no se reactiva automáticamente
+            try {
+                const reason = resetStrikes ? 'unban_reset_strikes' : 'unban';
+                query(`INSERT INTO admin_audit (admin_id, action, target_user_id, reason) VALUES (?, 'unban', ?, ?)` , [req.user?.id || null, targetId, reason]);
+            } catch (e) {
+                logger.warn('admin_audit insert fallo (tabla puede no existir)', { error: e.message });
+            }
 
             logger.info('Usuario desbaneado manualmente', { adminId: req.user?.id, targetId, resetStrikes });
 
@@ -433,6 +434,9 @@ module.exports = {
     approveReport,
     rejectReview,
     rejectWithStrike,
+    getUsers,
+    getStats,
+    getRestaurants,
     banUser,
     unbanUser
 };
