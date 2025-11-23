@@ -79,10 +79,15 @@ function getConfig() {
             sessionTimeout: parseInt(process.env.SESSION_TIMEOUT) || 1800000 // 30 min
         },
         cors: {
-            allowedOrigins: process.env.ALLOWED_ORIGINS ? 
-                process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()) : 
-                ['http://localhost:8000']
-        },
+    allowedOrigins: process.env.ALLOWED_ORIGINS ? 
+        process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()) : 
+        [
+            'http://localhost:5500',
+            'http://127.0.0.1:5500',
+            'http://localhost:3000'
+        ]
+},
+
         logging: {
             level: process.env.LOG_LEVEL || 'info'
         }

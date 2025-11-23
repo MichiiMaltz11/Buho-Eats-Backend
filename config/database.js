@@ -11,7 +11,29 @@ const config = require('./env');
 let db = null;
 
 /**
- * Inicializa la conexión a la base de datos
+ * Ejecutar migraciones desde init.sql
+ */
+function runMigrations(database) {
+    try {
+        const sqlPath = path.join(__dirname, '..', 'database', 'init.sql');
+
+        if (!fs.existsSync(sqlPath)) {
+            console.error('❌ No existe el archivo init.sql');
+            return;
+        }
+
+        const initSQL = fs.readFileSync(sqlPath, 'utf8');
+
+        database.exec(initSQL);
+
+        console.log('✅ Migraciones ejecutadas correctamente (init.sql)');
+    } catch (error) {
+        console.error('❌ Error ejecutando init.sql:', error.message);
+    }
+}
+
+/**
+ * Inicializar la base de datos
  */
 function initDatabase() {
     try {
@@ -23,15 +45,17 @@ function initDatabase() {
             fs.mkdirSync(dbDir, { recursive: true });
         }
 
-        // Conectar a la base de datos
         db = new Database(dbPath, {
             verbose: config.logging.level === 'debug' ? console.log : null
         });
 
-        // Habilitar foreign keys
         db.pragma('foreign_keys = ON');
 
         console.log('Base de datos conectada:', dbPath);
+
+        // Ejecutar migraciones
+        runMigrations(db);
+
         return db;
     } catch (error) {
         console.error('Error al conectar con la base de datos:', error.message);
@@ -40,31 +64,19 @@ function initDatabase() {
 }
 
 /**
- * Obtiene la instancia de la base de datos
+ * Obtener la instancia de la base
  */
 function getDatabase() {
-    if (!db) {
-        return initDatabase();
-    }
+    if (!db) return initDatabase();
     return db;
 }
 
 /**
- * Cierra la conexión a la base de datos
- */
-function closeDatabase() {
-    if (db) {
-        db.close();
-        console.log('Base de datos cerrada');
-    }
-}
-
-/**
- * Ejecuta un query de forma segura con parámetros
+ * Query seguro
  */
 function query(sql, params = []) {
     const database = getDatabase();
-    
+
     try {
         if (sql.trim().toUpperCase().startsWith('SELECT')) {
             return database.prepare(sql).all(params);
@@ -78,7 +90,7 @@ function query(sql, params = []) {
 }
 
 /**
- * Ejecuta una transacción
+ * Transacciones
  */
 function transaction(callback) {
     const database = getDatabase();
@@ -86,10 +98,21 @@ function transaction(callback) {
     return trans();
 }
 
+/**
+ * Cerrar DB
+ */
+function closeDatabase() {
+    if (db) {
+        db.close();
+        console.log('Base de datos cerrada');
+    }
+}
+
 module.exports = {
     initDatabase,
     getDatabase,
-    closeDatabase,
     query,
-    transaction
+    transaction,
+    closeDatabase,
 };
+
