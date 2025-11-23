@@ -169,76 +169,9 @@ const adminRoutes = {
     'POST /api/admin/users/:id/roles': {
         handler: userController.assignOwnerRole,
         requireAuth: true,
-        middleware: requireRole('admin')
+        middleware: authenticateToken
     }
 };
-
-// Añadir endpoints de baneo/desbaneo manual
-Object.assign(adminRoutes, {
-    'POST /api/admin/users/:id/ban': {
-        handler: require('../controllers/adminController').banUser,
-        requireAuth: true,
-        middleware: requireRole('admin')
-    },
-    'POST /api/admin/users/:id/unban': {
-        handler: require('../controllers/adminController').unbanUser,
-        requireAuth: true,
-        middleware: requireRole('admin')
-    }
-});
-
-// Rutas de administración para reportes de reseñas
-const adminReportRoutes = {
-    'GET /api/admin/reports': {
-        handler: require('../controllers/adminController').getReports,
-        requireAuth: true,
-        middleware: requireRole('admin')
-    },
-    'POST /api/admin/reports/:id/approve': {
-        handler: require('../controllers/adminController').approveReport,
-        requireAuth: true,
-        middleware: requireRole('admin')
-    },
-    'POST /api/admin/reports/:id/reject-review': {
-        handler: require('../controllers/adminController').rejectReview,
-        requireAuth: true,
-        middleware: requireRole('admin')
-    },
-    'POST /api/admin/reports/:id/reject-with-strike': {
-        handler: require('../controllers/adminController').rejectWithStrike,
-        requireAuth: true,
-        middleware: requireRole('admin')
-    }
-};
-
-Object.assign(adminRoutes, adminReportRoutes);
-
-// Ruta para obtener lista de usuarios (admin)
-Object.assign(adminRoutes, {
-    'GET /api/admin/users': {
-        handler: require('../controllers/adminController').getUsers,
-        requireAuth: true,
-        middleware: requireRole('admin')
-    }
-});
-
-// Ruta para estadísticas generales (admin)
-Object.assign(adminRoutes, {
-    'GET /api/admin/stats': {
-        handler: require('../controllers/adminController').getStats,
-        requireAuth: true,
-        middleware: requireRole('admin')
-    }
-});
-
-// Ruta para listar restaurantes (admin)
-Object.assign(adminRoutes, {
-    'GET /api/admin/restaurants': {
-        handler: require('../controllers/adminController').getRestaurants,
-        requireAuth: true,
-        middleware: requireRole('admin')
-    }
-});
 
 /**
  * Combinar todas las rutas
