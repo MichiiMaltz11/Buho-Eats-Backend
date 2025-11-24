@@ -9,7 +9,7 @@ const logger = require('../utils/logger');
 /**
  * Sanitiza un objeto recursivamente
  */
-function sanitizeObject(obj) {
+function sanitizeObject(obj, skipKeys = ['image', 'photo']) {
     if (obj === null || obj === undefined) {
         return obj;
     }
@@ -19,14 +19,19 @@ function sanitizeObject(obj) {
     }
 
     if (Array.isArray(obj)) {
-        return obj.map(item => sanitizeObject(item));
+        return obj.map(item => sanitizeObject(item, skipKeys));
     }
 
     if (typeof obj === 'object') {
         const sanitized = {};
         for (const key in obj) {
             if (obj.hasOwnProperty(key)) {
-                sanitized[key] = sanitizeObject(obj[key]);
+                // Si es un campo de imagen Base64, no sanitizar
+                if (skipKeys.includes(key) && typeof obj[key] === 'string' && obj[key].startsWith('data:image/')) {
+                    sanitized[key] = obj[key];
+                } else {
+                    sanitized[key] = sanitizeObject(obj[key], skipKeys);
+                }
             }
         }
         return sanitized;
@@ -90,6 +95,17 @@ const dangerousPatterns = [
  */
 function detectSQLInjection(str) {
     if (typeof str !== 'string') {
+        return false;
+    }
+
+    // Ignorar imágenes Base64
+    if (str.startsWith('data:image/')) {
+        return false;
+    }
+
+    // Ignorar si el string contiene entidades HTML (ya fue sanitizado)
+    // Las entidades HTML como &lt; &gt; &amp; &#x2F; son seguras
+    if (str.includes('&lt;') || str.includes('&gt;') || str.includes('&amp;') || str.includes('&#x')) {
         return false;
     }
 

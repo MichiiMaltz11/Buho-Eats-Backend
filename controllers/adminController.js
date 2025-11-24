@@ -101,11 +101,11 @@ function rejectReview(req, reportId) {
             return { success: true, statusCode: 200, data: { message: 'Reporte marcado como rechazado (reseña ya inactiva)' } };
         }
 
-        // Soft delete Hace review y marca reporte como rechazado
+        // Hard delete de la review y marca reporte como rechazado
         transaction(() => {
-            query('UPDATE reviews SET is_active = 0 WHERE id = ?', [report.review_id]);
+            query('DELETE FROM reviews WHERE id = ?', [report.review_id]);
             query(`UPDATE review_reports SET status = 'rechazado', resolved_at = CURRENT_TIMESTAMP, resolved_by = ? WHERE id = ?`, [req.user.id, reportId]);
-            // Recalcula el restaurant rating
+            // Recalcula el restaurant rating (ahora cuenta solo las activas que quedan)
             const restaurantId = review.restaurant_id;
             if (restaurantId) {
                 const stats = query('SELECT COUNT(*) as total, COALESCE(AVG(rating),0) as avg FROM reviews WHERE restaurant_id = ? AND is_active = 1', [restaurantId]);
@@ -168,17 +168,18 @@ function rejectWithStrike(req, reportId, body) {
             return { success: true, statusCode: 200, data: { message: 'Reporte marcado como rechazado (reseña ya inactiva)' } };
         }
 
-        // Transaction: borra review (soft), incrementa strikes, quiza ban, marca reporte
+        // Transaction: elimina review permanentemente, incrementa strikes, quiza ban, marca reporte
         transaction(() => {
-            query('UPDATE reviews SET is_active = 0 WHERE id = ?', [report.review_id]);
+            query('DELETE FROM reviews WHERE id = ?', [report.review_id]);
 
             // Incrementar strikes
             const newStrikes = (target.strikes || 0) + 1;
             query('UPDATE users SET strikes = ? WHERE id = ?', [newStrikes, target.id]);
 
-            // Si alcanza >=3, banear usuario (is_active = 0)
+            // Si alcanza >=3, banear usuario (is_active = 0) y eliminar todas sus reseñas
             if (newStrikes >= 3) {
                 query('UPDATE users SET is_active = 0 WHERE id = ?', [target.id]);
+                query('DELETE FROM reviews WHERE user_id = ?', [target.id]);
             }
 
             query(`UPDATE review_reports SET status = 'rechazado', resolved_at = CURRENT_TIMESTAMP, resolved_by = ? WHERE id = ?`, [req.user.id, reportId]);
@@ -362,10 +363,16 @@ function getRestaurants(req) {
             const target = users[0];
             if (target.role === 'admin') return { success: false, statusCode: 400, error: 'No se puede banear a otro admin' };
 
-            // Realizar baneo en transacción: desactivar usuario, establecer strikes a 3, soft-delete reseñas
+            // Realizar baneo en transacción: desactivar usuario, establecer strikes a 3, eliminar reseñas permanentemente
             transaction(() => {
                 query('UPDATE users SET is_active = 0, strikes = 3 WHERE id = ?', [targetId]);
-                query('UPDATE reviews SET is_active = 0 WHERE user_id = ?', [targetId]);
+                // Hard delete para evitar problemas de UNIQUE constraint al reactivar
+                query('DELETE FROM reviews WHERE user_id = ?', [targetId]);
+                
+                // Si es owner, desactivar también su restaurante
+                if (target.role === 'owner') {
+                    query('UPDATE restaurants SET is_active = 0 WHERE owner_id = ?', [targetId]);
+                }
                 // Insertar registro de auditoría
                 try {
                     query(`INSERT INTO admin_audit (admin_id, action, target_user_id, reason) VALUES (?, 'ban', ?, ?)` , [req.user?.id || null, targetId, body?.reason || null]);
@@ -409,6 +416,11 @@ function getRestaurants(req) {
                     query('UPDATE users SET is_active = 1, strikes = 0 WHERE id = ?', [targetId]);
                 } else {
                     query('UPDATE users SET is_active = 1 WHERE id = ?', [targetId]);
+                }
+                
+                // Si es propietario, reactivar su restaurante también
+                if (target.role === 'owner') {
+                    query('UPDATE restaurants SET is_active = 1 WHERE owner_id = ?', [targetId]);
                 }
             });
 

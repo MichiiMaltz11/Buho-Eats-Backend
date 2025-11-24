@@ -17,9 +17,12 @@ const logger = require('../utils/logger');
  */
 async function register(req, body) {
     try {
-        const { firstName, lastName, email, password } = body;
+        const { firstName, lastName, email, password, role, businessName, businessAddress } = body;
 
-        // Validar datos
+        // Debug: Ver qué llega en body
+        console.log('[DEBUG] Register body:', { firstName, lastName, email, role, businessName, businessAddress });
+
+        // Validar datos básicos
         const validation = validateRegistrationData({ firstName, lastName, email, password });
         
         if (!validation.isValid) {
@@ -30,6 +33,34 @@ async function register(req, body) {
                 error: 'Datos inválidos',
                 errors: validation.errors
             };
+        }
+
+        // Validar rol
+        const userRole = role || 'user';
+        if (!['user', 'owner', 'admin'].includes(userRole)) {
+            return {
+                success: false,
+                statusCode: 400,
+                error: 'Rol inválido'
+            };
+        }
+
+        // Si es owner, validar datos del restaurante
+        if (userRole === 'owner') {
+            if (!businessName || businessName.trim().length < 3) {
+                return {
+                    success: false,
+                    statusCode: 400,
+                    error: 'El nombre del restaurante debe tener al menos 3 caracteres'
+                };
+            }
+            if (!businessAddress || businessAddress.trim().length < 5) {
+                return {
+                    success: false,
+                    statusCode: 400,
+                    error: 'La dirección del restaurante debe tener al menos 5 caracteres'
+                };
+            }
         }
 
         // Verificar si el email ya existe
@@ -51,37 +82,66 @@ async function register(req, body) {
         const passwordHash = await hashPassword(password);
 
         // Insertar usuario
-        const result = query(`
+        const userResult = query(`
             INSERT INTO users (first_name, last_name, email, password_hash, role)
             VALUES (?, ?, ?, ?, ?)
-        `, [firstName, lastName, email.toLowerCase(), passwordHash, 'user']);
+        `, [firstName, lastName, email.toLowerCase(), passwordHash, userRole]);
 
-        const userId = result.lastInsertRowid;
+        const userId = userResult.lastInsertRowid;
+
+        let restaurantId = null;
+
+        // Si es owner, crear el restaurante
+        if (userRole === 'owner') {
+            const restaurantResult = query(`
+                INSERT INTO restaurants (name, address, owner_id, is_active)
+                VALUES (?, ?, ?, 1)
+            `, [businessName.trim(), businessAddress.trim(), userId]);
+
+            restaurantId = restaurantResult.lastInsertRowid;
+
+            logger.info('Restaurante creado para owner', { 
+                userId, 
+                restaurantId,
+                restaurantName: businessName 
+            });
+        }
 
         logger.info('Usuario registrado exitosamente', { 
             userId, 
-            email: email.toLowerCase() 
+            email: email.toLowerCase(),
+            role: userRole
         });
 
         // Generar token
         const token = generateToken({
             id: userId,
             email: email.toLowerCase(),
-            role: 'user'
+            role: userRole,
+            firstName,
+            lastName
         });
+
+        const userData = {
+            id: userId,
+            firstName,
+            lastName,
+            email: email.toLowerCase(),
+            role: userRole
+        };
+
+        if (restaurantId) {
+            userData.restaurantId = restaurantId;
+        }
 
         return {
             success: true,
             statusCode: 201,
             data: {
-                message: 'Usuario registrado exitosamente',
-                user: {
-                    id: userId,
-                    firstName,
-                    lastName,
-                    email: email.toLowerCase(),
-                    role: 'user'
-                },
+                message: userRole === 'owner' 
+                    ? 'Cuenta de owner y restaurante creados exitosamente' 
+                    : 'Usuario registrado exitosamente',
+                user: userData,
                 token
             }
         };
@@ -159,12 +219,17 @@ async function login(req, body) {
         // Verificar si el usuario está activo
         if (!user.is_active) {
             recordLoginAttempt(req, email, false);
-            logger.warn('Login fallido: usuario inactivo', { email });
+            logger.warn('Login fallido: usuario inactivo', { email, role: user.role });
+            
+            // Mensaje personalizado según el rol
+            const errorMessage = user.role === 'owner' 
+                ? 'Tu cuenta de propietario ha sido desactivada. Tu restaurante también está inactivo.'
+                : 'Tu cuenta ha sido baneada por violar nuestras políticas.';
             
             return {
                 success: false,
                 statusCode: 403,
-                error: 'Cuenta desactivada'
+                error: errorMessage
             };
         }
 
@@ -187,25 +252,54 @@ async function login(req, body) {
         recordLoginAttempt(req, email, true);
         logger.info('Login exitoso', { userId: user.id, email: user.email });
 
-        // Generar token
-        const token = generateToken({
+        // Si es owner, obtener su restaurant_id
+        let restaurantId = null;
+        if (user.role === 'owner') {
+            console.log('🔍 Buscando restaurante para owner:', user.id);
+            const restaurants = query(
+                'SELECT id FROM restaurants WHERE owner_id = ? LIMIT 1',
+                [user.id]
+            );
+            console.log('🍽️ Restaurantes encontrados:', restaurants);
+            if (restaurants.length > 0) {
+                restaurantId = restaurants[0].id;
+                console.log('✅ Restaurant ID asignado:', restaurantId);
+            } else {
+                console.log('⚠️ No se encontró restaurante para este owner');
+            }
+        }
+
+        // Generar token (incluir restaurantId para owners)
+        const tokenPayload = {
             id: user.id,
             email: user.email,
             role: user.role
-        });
+        };
+        
+        if (restaurantId) {
+            tokenPayload.restaurantId = restaurantId;
+        }
+
+        const token = generateToken(tokenPayload);
+
+        const userData = {
+            id: user.id,
+            firstName: user.first_name,
+            lastName: user.last_name,
+            email: user.email,
+            role: user.role
+        };
+
+        if (restaurantId) {
+            userData.restaurantId = restaurantId;
+        }
 
         return {
             success: true,
             statusCode: 200,
             data: {
                 message: 'Login exitoso',
-                user: {
-                    id: user.id,
-                    firstName: user.first_name,
-                    lastName: user.last_name,
-                    email: user.email,
-                    role: user.role
-                },
+                user: userData,
                 token
             }
         };

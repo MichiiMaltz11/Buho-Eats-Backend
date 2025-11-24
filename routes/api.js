@@ -10,7 +10,9 @@ const menuController = require('../controllers/menuController');
 const userController = require('../controllers/userController');
 const favoritesController = require('../controllers/favoritesController');
 const uploadController = require('../controllers/uploadController');
-const { authenticateToken, requireRole } = require('../middleware/auth');
+const adminController = require('../controllers/adminController');
+const ownerController = require('../controllers/ownerController');
+const { authenticateToken, requireRole, optionalAuth } = require('../middleware/auth');
 
 /**
  * Rutas públicas (no requieren autenticación)
@@ -34,7 +36,8 @@ const publicRoutes = {
     },
     'GET /api/reviews': {
         handler: reviewController.getReviews,
-        requireAuth: false
+        requireAuth: false,
+        middleware: optionalAuth
     },
     'GET /api/menu': {
         handler: menuController.getMenuItems,
@@ -163,13 +166,109 @@ const protectedRoutes = {
 };
 
 /**
+ * Rutas de Owner (requieren rol owner)
+ */
+const ownerRoutes = {
+    'GET /api/owner/restaurant': {
+        handler: ownerController.getMyRestaurant,
+        requireAuth: true,
+        middleware: requireRole('owner')
+    },
+    'PUT /api/owner/restaurant': {
+        handler: ownerController.updateRestaurant,
+        requireAuth: true,
+        middleware: requireRole('owner')
+    },
+    'PUT /api/owner/restaurant/photo': {
+        handler: ownerController.updateRestaurantPhoto,
+        requireAuth: true,
+        middleware: requireRole('owner')
+    },
+    'GET /api/owner/menu': {
+        handler: ownerController.getMenu,
+        requireAuth: true,
+        middleware: requireRole('owner')
+    },
+    'POST /api/owner/menu': {
+        handler: ownerController.addMenuItem,
+        requireAuth: true,
+        middleware: requireRole('owner')
+    },
+    'PUT /api/owner/menu/:id': {
+        handler: ownerController.updateMenuItem,
+        requireAuth: true,
+        middleware: requireRole('owner')
+    },
+    'DELETE /api/owner/menu/:id': {
+        handler: ownerController.deleteMenuItem,
+        requireAuth: true,
+        middleware: requireRole('owner')
+    },
+    'POST /api/owner/reviews/:id/report': {
+        handler: ownerController.reportReview,
+        requireAuth: true,
+        middleware: requireRole('owner')
+    },
+    'GET /api/owner/stats': {
+        handler: ownerController.getStats,
+        requireAuth: true,
+        middleware: requireRole('owner')
+    }
+};
+
+/**
  * Rutas de admin (requieren rol admin)
  */
 const adminRoutes = {
+    'GET /api/admin/stats': {
+        handler: adminController.getStats,
+        requireAuth: true,
+        middleware: requireRole('admin')
+    },
+    'GET /api/admin/reports': {
+        handler: adminController.getReports,
+        requireAuth: true,
+        middleware: requireRole('admin')
+    },
+    'POST /api/admin/reports/:id/approve': {
+        handler: adminController.approveReport,
+        requireAuth: true,
+        middleware: requireRole('admin')
+    },
+    'POST /api/admin/reports/:id/reject-review': {
+        handler: adminController.rejectReview,
+        requireAuth: true,
+        middleware: requireRole('admin')
+    },
+    'POST /api/admin/reports/:id/reject-with-strike': {
+        handler: adminController.rejectWithStrike,
+        requireAuth: true,
+        middleware: requireRole('admin')
+    },
+    'GET /api/admin/users': {
+        handler: adminController.getUsers,
+        requireAuth: true,
+        middleware: requireRole('admin')
+    },
+    'POST /api/admin/users/:id/ban': {
+        handler: adminController.banUser,
+        requireAuth: true,
+        middleware: requireRole('admin')
+    },
+    'POST /api/admin/users/:id/unban': {
+        handler: adminController.unbanUser,
+        requireAuth: true,
+        middleware: requireRole('admin')
+    },
+    'GET /api/admin/restaurants': {
+        handler: adminController.getRestaurants,
+        requireAuth: true,
+        middleware: requireRole('admin')
+    },
     'POST /api/admin/users/:id/roles': {
         handler: userController.assignOwnerRole,
         requireAuth: true,
-        middleware: authenticateToken
+        middleware: requireRole('admin')
     }
 };
 
@@ -179,6 +278,7 @@ const adminRoutes = {
 const allRoutes = {
     ...publicRoutes,
     ...protectedRoutes,
+    ...ownerRoutes,
     ...adminRoutes
 };
 
@@ -250,11 +350,12 @@ function findRoute(method, url) {
  */
 async function executeRoute(route, req, body, params = {}) {
     try {
-        // Si requiere autenticación, ejecutar middleware
-        if (route.requireAuth && route.middleware) {
+        // Si tiene middleware, ejecutarlo
+        if (route.middleware) {
             const authResult = await route.middleware(req, null);
             
-            if (!authResult.authenticated) {
+            // Si requiere autenticación obligatoria y falla, rechazar
+            if (route.requireAuth && !authResult.authenticated) {
                 return {
                     success: false,
                     statusCode: authResult.statusCode || 401,
@@ -262,7 +363,7 @@ async function executeRoute(route, req, body, params = {}) {
                 };
             }
 
-            // El middleware añade req.user
+            // El middleware añade req.user (si hay token válido)
         }
 
         // Ejecutar el handler del controlador
@@ -310,5 +411,6 @@ module.exports = {
     listRoutes,
     publicRoutes,
     protectedRoutes,
+    ownerRoutes,
     adminRoutes
 };

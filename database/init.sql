@@ -174,7 +174,7 @@ VALUES (
     'Admin',
     'Sistema',
     'admin@buhoeats.com',
-    '$2b$10$rGdX8kN5Z.qVN7YXfZ5Riu8kJWxL5h3yfz9K7xY.2KYWQGfZqX0je',
+    '$2b$10$6OibciOQhNmJl0YgeFj9u.M8xeWF2XWAlHHRRY.SstjjHKfny6KYG',
     'admin'
 );
 
@@ -255,44 +255,46 @@ BEGIN
 END;
 
 -- ========================================
--- DATOS DE DEMOSTRACIÓN
+-- DATOS DE DEMOSTRACIÓN (DESHABILITADO)
 -- ========================================
+-- Los datos iniciales ya fueron creados con cleanDatabase.js
+-- Si necesitas restaurar datos de prueba, ejecuta scripts/cleanDatabase.js
 
--- Insertar usuario owner de prueba (contraseña: Admin123!)
-INSERT OR IGNORE INTO users (id, first_name, last_name, email, password_hash, role)
-VALUES 
-    (2, 'Marco', 'Rossi', 'owner@buhoeats.com', '$2b$10$rGdX8kN5Z.qVN7YXfZ5Riu8kJWxL5h3yfz9K7xY.2KYWQGfZqX0je', 'owner');
+-- -- Insertar usuario owner de prueba (contraseña: Admin123!)
+-- INSERT OR IGNORE INTO users (id, first_name, last_name, email, password_hash, role)
+-- VALUES 
+--     (2, 'Marco', 'Rossi', 'owner@buhoeats.com', '$2b$10$rGdX8kN5Z.qVN7YXfZ5Riu8kJWxL5h3yfz9K7xY.2KYWQGfZqX0je', 'owner');
 
--- Insertar restaurantes de demostración (con imágenes locales)
--- Todos pertenecen al owner_id 2
-INSERT OR IGNORE INTO restaurants (id, name, description, address, phone, email, cuisine_type, price_range, opening_hours, owner_id, image_url)
-VALUES 
-    (1, 'La Bella Notte', 'Auténtica cocina italiana con recetas tradicionales de la Toscana. Ambiente acogedor y romántico perfecto para cenas especiales.', 'Av. Revolución 1234, Col. Centro', '555-0101', 'info@labellanotte.com', 'Italiana', '$$$', 'Lun-Dom: 13:00-23:00', 2, '/assets/img/restaurants/default/italian-1.jpg'),
-    
-    (2, 'Burger Paradise', 'Las mejores hamburguesas gourmet de la ciudad. Carne 100% Angus, pan artesanal y ingredientes frescos.', 'Calle Juárez 567, Col. Americana', '555-0102', 'contact@burgerparadise.com', 'Americana', '$$', 'Lun-Dom: 12:00-22:00', 2, '/assets/img/restaurants/default/burger-1.jpg'),
-    
-    (3, 'Pizza Napoletana', 'Pizza al estilo napolitano con horno de leña. Masa fermentada 48 horas y ingredientes importados de Italia.', 'Av. Chapultepec 890, Col. Juárez', '555-0103', 'hola@pizzanapoli.com', 'Italiana', '$$', 'Mar-Dom: 13:00-23:00', 2, '/assets/img/restaurants/default/pizza-1.jpg'),
-    
-    (4, 'Sushi Master', 'Sushi y sashimi preparado por chef japonés con 20 años de experiencia. Pescado fresco diariamente.', 'Av. Insurgentes 2341, Col. Del Valle', '555-0104', 'reservas@sushimaster.com', 'Japonesa', '$$$', 'Lun-Sáb: 13:00-22:30', 2, '/assets/img/restaurants/default/sushi-1.jpg'),
-    
-    (5, 'Taquería El Güero', 'Tacos al pastor, carnitas y más. Recetas familiares transmitidas por generaciones.', 'Calle Morelos 123, Col. Centro', '555-0105', 'elguero@tacos.com', 'Mexicana', '$', 'Lun-Dom: 10:00-23:00', 2, '/assets/img/restaurants/default/mexican-1.jpg');
+-- -- Insertar restaurantes de demostración (con imágenes locales)
+-- -- Todos pertenecen al owner_id 2
+-- INSERT OR IGNORE INTO restaurants (id, name, description, address, phone, email, cuisine_type, price_range, opening_hours, owner_id, image_url)
+-- VALUES 
+--     (1, 'La Bella Notte', 'Auténtica cocina italiana con recetas tradicionales de la Toscana. Ambiente acogedor y romántico perfecto para cenas especiales.', 'Av. Revolución 1234, Col. Centro', '555-0101', 'info@labellanotte.com', 'Italiana', '$$$', 'Lun-Dom: 13:00-23:00', 2, '/assets/img/restaurants/default/italian-1.jpg'),
+--     
+--     (2, 'Burger Paradise', 'Las mejores hamburguesas gourmet de la ciudad. Carne 100% Angus, pan artesanal y ingredientes frescos.', 'Calle Juárez 567, Col. Americana', '555-0102', 'contact@burgerparadise.com', 'Americana', '$$', 'Lun-Dom: 12:00-22:00', 2, '/assets/img/restaurants/default/burger-1.jpg'),
+--     
+--     (3, 'Pizza Napoletana', 'Pizza al estilo napolitano con horno de leña. Masa fermentada 48 horas y ingredientes importados de Italia.', 'Av. Chapultepec 890, Col. Juárez', '555-0103', 'hola@pizzanapoli.com', 'Italiana', '$$', 'Mar-Dom: 13:00-23:00', 2, '/assets/img/restaurants/default/pizza-1.jpg'),
+--     
+--     (4, 'Sushi Master', 'Sushi y sashimi preparado por chef japonés con 20 años de experiencia. Pescado fresco diariamente.', 'Av. Insurgentes 2341, Col. Del Valle', '555-0104', 'reservas@sushimaster.com', 'Japonesa', '$$$', 'Lun-Sáb: 13:00-22:30', 2, '/assets/img/restaurants/default/sushi-1.jpg'),
+--     
+--     (5, 'Taquería El Güero', 'Tacos al pastor, carnitas y más. Recetas familiares transmitidas por generaciones.', 'Calle Morelos 123, Col. Centro', '555-0105', 'elguero@tacos.com', 'Mexicana', '$', 'Lun-Dom: 10:00-23:00', 2, '/assets/img/restaurants/default/mexican-1.jpg');
 
--- Insertar menú para "La Bella Notte" (Restaurante ID 1)
--- 2 platos por categoría
-INSERT OR IGNORE INTO menu_items (restaurant_id, name, description, price, category, image_url)
-VALUES 
-    -- ENTRADAS
-    (1, 'Bruschetta al Pomodoro', 'Pan tostado con tomates frescos, albahaca, ajo y aceite de oliva extra virgen', 89.00, 'Entrada', '/assets/img/menu/bruschetta.jpg'),
-    (1, 'Insalata Caprese', 'Tomate, mozzarella di bufala, albahaca fresca y reducción de balsámico', 125.00, 'Entrada', '/assets/img/menu/caprese.jpg'),
-    
-    -- PLATOS PRINCIPALES
-    (1, 'Spaghetti alla Carbonara', 'Pasta con pancetta, huevo, pecorino romano y pimienta negra', 185.00, 'Plato Principal', '/assets/img/menu/pasta-carbonara.jpg'),
-    (1, 'Lasagna alla Bolognese', 'Lasagna casera con ragú de carne, bechamel y parmesano', 195.00, 'Plato Principal', '/assets/img/menu/lasagna.jpg'),
-    
-    -- POSTRES
-    (1, 'Tiramisù Classico', 'El auténtico postre italiano con café, mascarpone y cacao', 95.00, 'Postre', '/assets/img/menu/tiramisu.jpg'),
-    (1, 'Panna Cotta ai Frutti di Bosco', 'Crema de vainilla con coulis de frutos rojos', 85.00, 'Postre', '/assets/img/menu/panna-cotta.jpg'),
-    
-    -- BEBIDAS
-    (1, 'Espresso Italiano', 'Café espresso preparado con granos importados de Italia', 45.00, 'Bebida', '/assets/img/menu/espresso.jpg'),
-    (1, 'Vino Tinto de la Casa', 'Chianti Classico DOCG (copa)', 95.00, 'Bebida', '/assets/img/menu/wine.jpg');
+-- -- Insertar menú para "La Bella Notte" (Restaurante ID 1)
+-- -- 2 platos por categoría
+-- INSERT OR IGNORE INTO menu_items (restaurant_id, name, description, price, category, image_url)
+-- VALUES 
+--     -- ENTRADAS
+--     (1, 'Bruschetta al Pomodoro', 'Pan tostado con tomates frescos, albahaca, ajo y aceite de oliva extra virgen', 89.00, 'Entrada', '/assets/img/menu/bruschetta.jpg'),
+--     (1, 'Insalata Caprese', 'Tomate, mozzarella di bufala, albahaca fresca y reducción de balsámico', 125.00, 'Entrada', '/assets/img/menu/caprese.jpg'),
+--     
+--     -- PLATOS PRINCIPALES
+--     (1, 'Spaghetti alla Carbonara', 'Pasta con pancetta, huevo, pecorino romano y pimienta negra', 185.00, 'Plato Principal', '/assets/img/menu/pasta-carbonara.jpg'),
+--     (1, 'Lasagna alla Bolognese', 'Lasagna casera con ragú de carne, bechamel y parmesano', 195.00, 'Plato Principal', '/assets/img/menu/lasagna.jpg'),
+--     
+--     -- POSTRES
+--     (1, 'Tiramisù Classico', 'El auténtico postre italiano con café, mascarpone y cacao', 95.00, 'Postre', '/assets/img/menu/tiramisu.jpg'),
+--     (1, 'Panna Cotta ai Frutti di Bosco', 'Crema de vainilla con coulis de frutos rojos', 85.00, 'Postre', '/assets/img/menu/panna-cotta.jpg'),
+--     
+--     -- BEBIDAS
+--     (1, 'Espresso Italiano', 'Café espresso preparado con granos importados de Italia', 45.00, 'Bebida', '/assets/img/menu/espresso.jpg'),
+--     (1, 'Vino Tinto de la Casa', 'Chianti Classico DOCG (copa)', 95.00, 'Bebida', '/assets/img/menu/wine.jpg');

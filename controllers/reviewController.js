@@ -138,7 +138,9 @@ function getReviews(req) {
             };
         }
 
-        const reviews = query(`
+
+        // Si el usuario autenticado es owner, traer los reportes hechos por él
+        let reviews = query(`
             SELECT 
                 r.id,
                 r.rating,
@@ -155,6 +157,14 @@ function getReviews(req) {
             ORDER BY r.created_at DESC
             LIMIT ? OFFSET ?
         `, [restaurantId, limit, offset]);
+
+        // Si hay usuario autenticado y es owner, marcar las reportadas
+        if (req.user && req.user.role === 'owner') {
+            const ownerId = req.user.id;
+            // Obtener ids de reseñas reportadas por este owner
+            const reported = query('SELECT review_id FROM review_reports WHERE reporter_id = ?', [ownerId]).map(r => r.review_id);
+            reviews = reviews.map(r => ({ ...r, already_reported: reported.includes(r.id) }));
+        }
 
         // Contar total de reseñas
         const totalResult = query(
