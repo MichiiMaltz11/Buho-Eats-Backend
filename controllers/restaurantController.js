@@ -4,7 +4,7 @@
  */
 
 const { query } = require('../config/database');
-const { validateLength, validateRequired } = require('../utils/validator');
+const { validateLength, validateRequired, sanitizeInput, containsDangerousHTML } = require('../utils/validator');
 const logger = require('../utils/logger');
 
 /**
@@ -212,6 +212,29 @@ function createRestaurant(req, body) {
             };
         }
 
+        // Validación anti-XSS: Detectar HTML/scripts peligrosos
+        const fieldsToCheck = [
+            { value: name, fieldName: 'nombre' },
+            { value: description, fieldName: 'descripción' },
+            { value: address, fieldName: 'dirección' },
+            { value: cuisineType, fieldName: 'tipo de cocina' }
+        ];
+
+        for (const field of fieldsToCheck) {
+            if (field.value && containsDangerousHTML(field.value)) {
+                logger.warn('Intento de XSS detectado', { 
+                    field: field.fieldName, 
+                    value: field.value,
+                    userId: req.user?.id 
+                });
+                return {
+                    success: false,
+                    statusCode: 400,
+                    error: `El campo ${field.fieldName} contiene caracteres no permitidos`
+                };
+            }
+        }
+
         // Validar price range
         if (priceRange && !['$', '$$', '$$$', '$$$$'].includes(priceRange)) {
             return {
@@ -230,6 +253,13 @@ function createRestaurant(req, body) {
             };
         }
 
+        // Sanitizar todos los campos de texto
+        const sanitizedName = sanitizeInput(name);
+        const sanitizedDescription = description ? sanitizeInput(description) : null;
+        const sanitizedAddress = sanitizeInput(address);
+        const sanitizedPhone = phone ? sanitizeInput(phone) : null;
+        const sanitizedCuisineType = cuisineType ? sanitizeInput(cuisineType) : null;
+
         // Crear restaurante
         const result = query(`
             INSERT INTO restaurants (
@@ -238,11 +268,11 @@ function createRestaurant(req, body) {
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `, [
-            name,
-            description || null,
-            address,
-            phone || null,
-            cuisineType || null,
+            sanitizedName,
+            sanitizedDescription,
+            sanitizedAddress,
+            sanitizedPhone,
+            sanitizedCuisineType,
             priceRange || '$$',
             req.user.id,
             imageUrl || null

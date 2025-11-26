@@ -4,7 +4,7 @@
  */
 
 const { query } = require('../config/database');
-const { validateRequired, validateRange } = require('../utils/validator');
+const { validateRequired, validateRange, sanitizeInput, containsDangerousHTML } = require('../utils/validator');
 const logger = require('../utils/logger');
 
 /**
@@ -49,6 +49,23 @@ function createReview(req, body) {
             };
         }
 
+        // Validación anti-XSS: Detectar HTML/scripts peligrosos
+        if (containsDangerousHTML(comment)) {
+            logger.warn('Intento de XSS detectado en review', { 
+                comment,
+                userId: req.user?.id,
+                restaurantId 
+            });
+            return {
+                success: false,
+                statusCode: 400,
+                error: 'El comentario contiene caracteres no permitidos'
+            };
+        }
+
+        // Sanitizar comentario
+        const sanitizedComment = sanitizeInput(comment);
+
         // Verificar que el restaurante existe
         const restaurants = query('SELECT id FROM restaurants WHERE id = ? AND is_active = 1', [restaurantId]);
         if (restaurants.length === 0) {
@@ -74,7 +91,7 @@ function createReview(req, body) {
                     visit_date = ?,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
-            `, [rating, comment, visitDate || null, existingReview[0].id]);
+            `, [rating, sanitizedComment, visitDate || null, existingReview[0].id]);
 
             // Recalcular rating promedio
             updateRestaurantRating(restaurantId);
@@ -93,7 +110,7 @@ function createReview(req, body) {
         const result = query(`
             INSERT INTO reviews (restaurant_id, user_id, rating, comment, visit_date)
             VALUES (?, ?, ?, ?, ?)
-        `, [restaurantId, req.user.id, rating, comment, visitDate || null]);
+        `, [restaurantId, req.user.id, rating, sanitizedComment, visitDate || null]);
 
         const reviewId = result.lastInsertRowid;
 

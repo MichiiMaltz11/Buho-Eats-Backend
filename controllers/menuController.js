@@ -4,7 +4,7 @@
  */
 
 const { query } = require('../config/database');
-const { validateRequired, validateLength } = require('../utils/validator');
+const { validateRequired, validateLength, sanitizeInput, containsDangerousHTML } = require('../utils/validator');
 const logger = require('../utils/logger');
 
 /**
@@ -182,11 +182,38 @@ function createMenuItem(req, body) {
             };
         }
 
+        // Validación anti-XSS: Detectar HTML/scripts peligrosos
+        const fieldsToCheck = [
+            { value: name, fieldName: 'nombre' },
+            { value: description, fieldName: 'descripción' },
+            { value: category, fieldName: 'categoría' }
+        ];
+
+        for (const field of fieldsToCheck) {
+            if (field.value && containsDangerousHTML(field.value)) {
+                logger.warn('Intento de XSS detectado en menu', { 
+                    field: field.fieldName, 
+                    value: field.value,
+                    userId: req.user?.id 
+                });
+                return {
+                    success: false,
+                    statusCode: 400,
+                    error: `El campo ${field.fieldName} contiene caracteres no permitidos`
+                };
+            }
+        }
+
+        // Sanitizar campos de texto
+        const sanitizedName = sanitizeInput(name);
+        const sanitizedDescription = description ? sanitizeInput(description) : null;
+        const sanitizedCategory = category ? sanitizeInput(category) : 'Otro';
+
         // Crear elemento del menú
         const result = query(`
             INSERT INTO menu_items (restaurant_id, name, description, price, category, image_url)
             VALUES (?, ?, ?, ?, ?, ?)
-        `, [restaurantId, name, description || null, price, category || 'Otro', imageUrl || null]);
+        `, [restaurantId, sanitizedName, sanitizedDescription, price, sanitizedCategory, imageUrl || null]);
 
         const menuItemId = result.lastInsertRowid;
 

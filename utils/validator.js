@@ -81,6 +81,37 @@ function sanitizeInput(str) {
 }
 
 /**
+ * Detecta HTML/scripts peligrosos en el input
+ * @param {string} str - String a validar
+ * @returns {boolean} True si contiene contenido peligroso
+ */
+function containsDangerousHTML(str) {
+    if (!str || typeof str !== 'string') {
+        return false;
+    }
+
+    // Patrones peligrosos (case insensitive)
+    const dangerousPatterns = [
+        /<script[\s>]/i,           // <script> tags
+        /<\/script>/i,             // </script> tags
+        /javascript:/i,            // javascript: protocol
+        /on\w+\s*=/i,              // Event handlers (onclick=, onerror=, etc)
+        /<iframe[\s>]/i,           // <iframe> tags
+        /<object[\s>]/i,           // <object> tags
+        /<embed[\s>]/i,            // <embed> tags
+        /<img[\s>]/i,              // <img> tags (pueden tener onerror)
+        /eval\s*\(/i,              // eval() function
+        /expression\s*\(/i,        // CSS expressions
+        /<style[\s>]/i,            // <style> tags
+        /<link[\s>]/i,             // <link> tags
+        /vbscript:/i,              // vbscript: protocol
+        /data:text\/html/i         // data:text/html (puede ejecutar JS)
+    ];
+
+    return dangerousPatterns.some(pattern => pattern.test(str));
+}
+
+/**
  * Valida que un string no esté vacío
  * @param {string} str - String a validar
  * @param {string} fieldName - Nombre del campo (para mensaje de error)
@@ -245,6 +276,7 @@ module.exports = {
     isValidEmail,
     validatePassword,
     sanitizeInput,
+    containsDangerousHTML,
     validateRequired,
     validateLength,
     validateInteger,

@@ -161,6 +161,10 @@ async function requestHandler(req, res) {
         res.setHeader('X-XSS-Protection', '1; mode=block');  // XSS protection (legacy)
         res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');  // Control de referrer
         res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');  // Permisos restrictivos
+        
+        // Ocultar información del servidor (anti fingerprinting Kali)
+        res.removeHeader('X-Powered-By');
+        res.setHeader('Server', 'BuhoEats');  // Nombre genérico en lugar de "Node.js"
 
         // Manejar preflight OPTIONS
         if (req.method === 'OPTIONS') {
